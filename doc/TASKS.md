@@ -200,9 +200,9 @@ Semua fitur udah jalan fungsional, sekarang polish visual — pakai pola Pines U
 Ditemukan pas testing Fase 11: modul Persediaan/Transaksi masih kurang lengkap buat operasional harian (nggak ada edit/delete, bug perhitungan ledger, dll). Total 11 poin revisi.
 
 ### 14.1 — Fix bug ledger (prioritas tertinggi, mendasari semua yang lain)
-- [ ] Refactor `PersediaanService`: cutoff tanggal konsisten di totalMasuk/totalKoreksi/totalKeluar (bukan cuma totalKeluar doang)
-- [ ] Tie-breaker pakai `created_at`, bukan `id` (biar valid lintas tabel)
-- [ ] Method baru: `sisaSaatIni()` pakai cutoff `now()`, terpisah jelas dari `sisaSebelumTransaksi()`
+- [x] Refactor `PersediaanService`: cutoff tanggal konsisten di totalMasuk/totalKoreksi/totalKeluar (bukan cuma totalKeluar doang)
+- [x] Tie-breaker pakai `created_at`, bukan `id` (biar valid lintas tabel)
+- [x] Method baru: `sisaSaatIni()` pakai cutoff `now()`, terpisah jelas dari `sisaSebelumTransaksi()`
 
 ### 14.2 — Master Barang: field tambahan
 - [ ] Tambah kolom `spesifikasi_default` (migration + form create/edit + template excel §7.1)
