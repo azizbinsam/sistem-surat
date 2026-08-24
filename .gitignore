@@ -21,3 +21,4 @@ yarn-error.log
 !/storage/app/public/.gitkeep
 /storage/app/generated/*
 !/storage/app/generated/.gitkeep
+/storage/app/livewire-tmp
