@@ -6,58 +6,100 @@ use App\Models\BarangMasukItem;
 use App\Models\KoreksiStok;
 use App\Models\Transaksi;
 use App\Models\TransaksiItem;
+use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder;
 
 class PersediaanService
 {
-    public function totalMasuk(int $masterBarangId): int
-    {
-        return BarangMasukItem::where('master_barang_id', $masterBarangId)->sum('jumlah');
-    }
-
-    public function totalKoreksi(int $masterBarangId): int
-    {
-        return KoreksiStok::where('master_barang_id', $masterBarangId)->sum('jumlah');
-    }
-
     /**
-     * Total barang keluar. Kalau $sebelumTransaksi diisi, cuma hitung transaksi
-     * yang terjadi SEBELUM transaksi itu (urut kronologis by tanggal_npb, lalu id sebagai tie-breaker).
+     * Terapkan cutoff tanggal+created_at konsisten ke query manapun.
+     * - Kalau $cutoffCreatedAt diisi: baris dianggap "sudah ada" kalau tanggal < cutoffTanggal,
+     *   ATAU (tanggal == cutoffTanggal DAN created_at < cutoffCreatedAt). Dipakai buat
+     *   "sisa sebelum transaksi X" — exclude transaksi itu sendiri & yang after dia.
+     * - Kalau $cutoffCreatedAt null: baris dianggap "sudah ada" kalau tanggal <= cutoffTanggal
+     *   (inklusif). Dipakai buat "sisa saat ini" (cutoff = hari ini).
      */
-    public function totalKeluar(int $masterBarangId, ?Transaksi $sebelumTransaksi = null): int
+    protected function applyCutoff(Builder $query, string $dateColumn, Carbon $cutoffTanggal, ?Carbon $cutoffCreatedAt = null): Builder
     {
-        return TransaksiItem::where('master_barang_id', $masterBarangId)
-            ->whereHas('transaksi', function ($q) use ($sebelumTransaksi) {
-                if ($sebelumTransaksi) {
-                    $q->where(function ($qq) use ($sebelumTransaksi) {
-                        $qq->where('tanggal_npb', '<', $sebelumTransaksi->tanggal_npb)
-                            ->orWhere(function ($qqq) use ($sebelumTransaksi) {
-                                $qqq->where('tanggal_npb', $sebelumTransaksi->tanggal_npb)
-                                    ->where('id', '<', $sebelumTransaksi->id);
-                            });
-                    });
+        return $query->where(function ($q) use ($dateColumn, $cutoffTanggal, $cutoffCreatedAt) {
+            $q->where($dateColumn, '<', $cutoffTanggal->toDateString());
+
+            if ($cutoffCreatedAt) {
+                $q->orWhere(function ($qq) use ($dateColumn, $cutoffTanggal, $cutoffCreatedAt) {
+                    $qq->where($dateColumn, $cutoffTanggal->toDateString())
+                        ->where('created_at', '<', $cutoffCreatedAt);
+                });
+            } else {
+                $q->orWhere($dateColumn, '<=', $cutoffTanggal->toDateString());
+            }
+        });
+    }
+
+    public function totalMasuk(int $masterBarangId, ?Carbon $cutoffTanggal = null, ?Carbon $cutoffCreatedAt = null): int
+    {
+        $query = BarangMasukItem::where('master_barang_id', $masterBarangId);
+
+        if ($cutoffTanggal) {
+            $query->whereHas('barangMasuk', function ($q) use ($cutoffTanggal, $cutoffCreatedAt) {
+                $this->applyCutoff($q, 'tanggal', $cutoffTanggal, $cutoffCreatedAt);
+            });
+        }
+
+        return (int) $query->sum('jumlah');
+    }
+
+    public function totalKoreksi(int $masterBarangId, ?Carbon $cutoffTanggal = null, ?Carbon $cutoffCreatedAt = null): int
+    {
+        $query = KoreksiStok::where('master_barang_id', $masterBarangId);
+
+        if ($cutoffTanggal) {
+            $this->applyCutoff($query, 'tanggal', $cutoffTanggal, $cutoffCreatedAt);
+        }
+
+        return (int) $query->sum('jumlah');
+    }
+
+    public function totalKeluar(int $masterBarangId, ?Carbon $cutoffTanggal = null, ?Carbon $cutoffCreatedAt = null, ?int $excludeTransaksiId = null): int
+    {
+        $query = TransaksiItem::where('master_barang_id', $masterBarangId);
+
+        if ($cutoffTanggal) {
+            $query->whereHas('transaksi', function ($q) use ($cutoffTanggal, $cutoffCreatedAt, $excludeTransaksiId) {
+                $this->applyCutoff($q, 'tanggal_npb', $cutoffTanggal, $cutoffCreatedAt);
+
+                if ($excludeTransaksiId) {
+                    $q->where('id', '!=', $excludeTransaksiId);
                 }
-            })
-            ->sum('jumlah');
+            });
+        }
+
+        return (int) $query->sum('jumlah');
     }
 
     /**
-     * Sisa stok saat ini (akumulasi penuh sampai sekarang). Dipakai di halaman ringkasan.
+     * Sisa stok SAAT INI (cutoff = hari ini, inklusif). Dipakai di halaman ringkasan persediaan.
      */
     public function sisaSaatIni(int $masterBarangId): int
     {
-        return $this->totalMasuk($masterBarangId)
-            + $this->totalKoreksi($masterBarangId)
-            - $this->totalKeluar($masterBarangId);
+        $now = now();
+
+        return $this->totalMasuk($masterBarangId, $now)
+            + $this->totalKoreksi($masterBarangId, $now)
+            - $this->totalKeluar($masterBarangId, $now);
     }
 
     /**
-     * Sisa stok TEPAT SEBELUM transaksi tertentu diproses.
-     * Ini yang dipakai di kolom "Informasi Sisa Barang Persediaan" pas generate surat SPB (Fase 7).
+     * Sisa stok TEPAT SEBELUM transaksi tertentu diproses (exclude transaksi itu sendiri).
+     * Dipakai di kolom "Informasi Sisa Barang Persediaan" pas generate surat SPB,
+     * dan preview draft/detail transaksi.
      */
     public function sisaSebelumTransaksi(int $masterBarangId, Transaksi $transaksi): int
     {
-        return $this->totalMasuk($masterBarangId)
-            + $this->totalKoreksi($masterBarangId)
-            - $this->totalKeluar($masterBarangId, $transaksi);
+        $cutoffTanggal = Carbon::parse($transaksi->tanggal_npb);
+        $cutoffCreatedAt = $transaksi->created_at;
+
+        return $this->totalMasuk($masterBarangId, $cutoffTanggal, $cutoffCreatedAt)
+            + $this->totalKoreksi($masterBarangId, $cutoffTanggal, $cutoffCreatedAt)
+            - $this->totalKeluar($masterBarangId, $cutoffTanggal, $cutoffCreatedAt, excludeTransaksiId: $transaksi->id);
     }
 }

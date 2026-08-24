@@ -10,7 +10,7 @@ Route::get('/', function () {
 })->name('welcome');
 
 Route::middleware(['auth'])->group(function () {
-    Route::view('dashboard', 'dashboard')
+    Volt::route('dashboard', 'pages.dashboard')
         ->middleware('verified')
         ->name('dashboard');
 
