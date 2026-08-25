@@ -19,6 +19,7 @@ class MasterBarang extends Model
         'kategori',
         'satuan_default',
         'keperluan_default',
+        'spesifikasi_default'
     ];
 
     public function sekolah()
