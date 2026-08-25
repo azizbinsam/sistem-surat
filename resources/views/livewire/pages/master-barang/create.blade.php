@@ -4,13 +4,13 @@ use App\Models\MasterBarang;
 use Livewire\Attributes\Layout;
 use Livewire\Volt\Component;
 
-new #[Layout('layouts.app')] class extends Component
-{
+new #[Layout('layouts.app')] class extends Component {
     public string $kode_barang = '';
     public string $nama_barang = '';
     public string $kategori = '';
     public string $satuan_default = '';
     public string $keperluan_default = '';
+    public string $spesifikasi_default = '';
 
     public function simpan(): void
     {
@@ -20,6 +20,7 @@ new #[Layout('layouts.app')] class extends Component
             'kategori' => ['nullable', 'string', 'max:255'],
             'satuan_default' => ['required', 'string', 'max:50'],
             'keperluan_default' => ['nullable', 'string', 'max:255'],
+            'spesifikasi_default' => ['nullable', 'string', 'max:255'],
         ]);
 
         $validated['sekolah_id'] = auth()->user()->sekolah_id;
@@ -48,6 +49,13 @@ new #[Layout('layouts.app')] class extends Component
         </div>
 
         <div>
+            <x-input-label for="spesifikasi_default" value="Spesifikasi Default (opsional)" />
+            <x-text-input wire:model="spesifikasi_default" id="spesifikasi_default" class="block mt-1 w-full"
+                type="text" placeholder="Auto-suggest/fallback saat isi transaksi keluar" />
+            <x-input-error :messages="$errors->get('spesifikasi_default')" class="mt-2" />
+        </div>
+
+        <div>
             <x-input-label for="kategori" value="Kategori (opsional)" />
             <x-text-input wire:model="kategori" id="kategori" class="block mt-1 w-full" type="text" />
             <x-input-error :messages="$errors->get('kategori')" class="mt-2" />
@@ -55,19 +63,22 @@ new #[Layout('layouts.app')] class extends Component
 
         <div>
             <x-input-label for="satuan_default" value="Satuan" />
-            <x-text-input wire:model="satuan_default" id="satuan_default" class="block mt-1 w-full" type="text" placeholder="Buah, Botol, Rim, dst" />
+            <x-text-input wire:model="satuan_default" id="satuan_default" class="block mt-1 w-full" type="text"
+                placeholder="Buah, Botol, Rim, dst" />
             <x-input-error :messages="$errors->get('satuan_default')" class="mt-2" />
         </div>
 
         <div>
             <x-input-label for="keperluan_default" value="Keperluan Default (opsional)" />
-            <x-text-input wire:model="keperluan_default" id="keperluan_default" class="block mt-1 w-full" type="text" placeholder="Auto-suggest saat isi excel transaksi nanti" />
+            <x-text-input wire:model="keperluan_default" id="keperluan_default" class="block mt-1 w-full" type="text"
+                placeholder="Auto-suggest saat isi excel transaksi nanti" />
             <x-input-error :messages="$errors->get('keperluan_default')" class="mt-2" />
         </div>
 
         <div class="flex items-center gap-3">
             <x-primary-button>Simpan</x-primary-button>
-            <a href="{{ route('master-barang.index') }}" wire:navigate class="text-sm text-zinc-600 hover:underline">Batal</a>
+            <a href="{{ route('master-barang.index') }}" wire:navigate
+                class="text-sm text-zinc-600 hover:underline">Batal</a>
         </div>
     </form>
 </div>

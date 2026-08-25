@@ -23,9 +23,14 @@ new #[Layout('layouts.app')] class extends Component {
 <div>
     <div class="flex justify-between items-center mb-4">
         <h2 class="text-lg font-semibold text-zinc-900">Riwayat Penerimaan Barang (BPU)</h2>
-        <a href="{{ route('barang-masuk.upload') }}" wire:navigate>
-            <x-primary-button>+ Upload BPU</x-primary-button>
-        </a>
+        <div class="flex gap-2">
+            <a href="{{ route('barang-masuk.create') }}" wire:navigate>
+                <x-secondary-button>+ Tambah Manual</x-secondary-button>
+            </a>
+            <a href="{{ route('barang-masuk.upload') }}" wire:navigate>
+                <x-primary-button>+ Upload BPU</x-primary-button>
+            </a>
+        </div>
     </div>
 
     @if (session('success'))
@@ -40,6 +45,8 @@ new #[Layout('layouts.app')] class extends Component {
                     <th class="px-4 py-2 text-left text-xs font-medium text-zinc-600 uppercase">Tanggal</th>
                     <th class="px-4 py-2 text-left text-xs font-medium text-zinc-600 uppercase">Jumlah Item</th>
                     <th class="px-4 py-2 text-left text-xs font-medium text-zinc-600 uppercase">Rincian Barang</th>
+                    <th class="px-5 py-3 text-right text-xs font-semibold text-zinc-500 uppercase tracking-wider">Aksi
+                    </th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-200">
@@ -50,6 +57,12 @@ new #[Layout('layouts.app')] class extends Component {
                         <td class="px-4 py-2 text-sm">{{ $bpu->items_count }} item</td>
                         <td class="px-4 py-2 text-sm text-gray-600">
                             {{ $bpu->items->map(fn($i) => "{$i->masterBarang->nama_barang} ({$i->jumlah} {$i->satuan})")->implode(', ') }}
+                        </td>
+                        <td class="px-5 py-3.5 text-sm text-right space-x-3">
+                            <a href="{{ route('barang-masuk.edit', $bpu) }}" wire:navigate
+                                class="text-zinc-500 hover:text-emerald-600 font-medium">Edit</a>
+                            <button wire:click="hapus({{ $bpu->id }})" wire:confirm="Yakin hapus barang ini?"
+                                class="text-red-500 hover:text-red-700 font-medium">Hapus</button>
                         </td>
                     </tr>
                 @empty

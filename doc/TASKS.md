@@ -205,11 +205,11 @@ Ditemukan pas testing Fase 11: modul Persediaan/Transaksi masih kurang lengkap b
 - [x] Method baru: `sisaSaatIni()` pakai cutoff `now()`, terpisah jelas dari `sisaSebelumTransaksi()`
 
 ### 14.2 — Master Barang: field tambahan
-- [ ] Tambah kolom `spesifikasi_default` (migration + form create/edit + template excel §7.1)
+- [x] Tambah kolom `spesifikasi_default` (migration + form create/edit + template excel §7.1)
 
 ### 14.3 — Penerimaan Barang (BPU): CRUD lengkap
-- [ ] Form Tambah manual (dynamic multi-item, tanggal bebas)
-- [ ] Form Edit
+- [x] Form Tambah manual (dynamic multi-item, tanggal bebas)
+- [x] Form Edit
 - [ ] Delete + warning kalau berdampak ke transaksi yang udah pakai barang itu (bikin minus)
 
 ### 14.4 — Transaksi Keluar: CRUD lengkap + fitur baru

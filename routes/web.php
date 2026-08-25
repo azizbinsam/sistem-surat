@@ -41,6 +41,8 @@ Route::middleware(['auth'])->group(function () {
 
     Route::prefix('barang-masuk')->name('barang-masuk.')->group(function () {
         Volt::route('/', 'pages.barang-masuk.index')->name('index');
+        Volt::route('create', 'pages.barang-masuk.create')->name('create');
+        Volt::route('{barangMasuk}/edit', 'pages.barang-masuk.edit')->name('edit');
         Volt::route('upload', 'pages.barang-masuk.upload')->name('upload');
 
         Route::get('template-download', function () {

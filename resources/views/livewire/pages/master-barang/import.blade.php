@@ -21,7 +21,9 @@ new #[Layout('layouts.app')] class extends Component {
         $this->errorMsg = null;
 
         try {
-            Excel::import(new MasterBarangImport(auth()->user()->sekolah_id), $this->file);
+            \Illuminate\Support\Facades\DB::transaction(function () {
+                Excel::import(new MasterBarangImport(auth()->user()->sekolah_id), $this->file);
+            });
             session()->flash('success', 'Import berhasil.');
             $this->redirect(route('master-barang.index'), navigate: true);
         } catch (\Maatwebsite\Excel\Validators\ValidationException $e) {

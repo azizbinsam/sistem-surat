@@ -12,6 +12,7 @@ new #[Layout('layouts.app')] class extends Component {
     public string $kategori = '';
     public string $satuan_default = '';
     public string $keperluan_default = '';
+    public string $spesifikasi_default = '';
 
     public function mount(MasterBarang $masterBarang): void
     {
@@ -26,6 +27,7 @@ new #[Layout('layouts.app')] class extends Component {
         $this->kategori = $masterBarang->kategori ?? '';
         $this->satuan_default = $masterBarang->satuan_default;
         $this->keperluan_default = $masterBarang->keperluan_default ?? '';
+        $this->spesifikasi_default = $masterBarang->spesifikasi_default ?? '';
     }
 
     public function simpan(): void
@@ -36,6 +38,7 @@ new #[Layout('layouts.app')] class extends Component {
             'kategori' => ['nullable', 'string', 'max:255'],
             'satuan_default' => ['required', 'string', 'max:50'],
             'keperluan_default' => ['nullable', 'string', 'max:255'],
+            'spesifikasi_default' => ['nullable', 'string', 'max:255'],
         ]);
 
         $this->masterBarang->update($validated);
@@ -68,6 +71,13 @@ new #[Layout('layouts.app')] class extends Component {
             <x-input-label for="nama_barang" value="Nama Barang" />
             <x-text-input wire:model="nama_barang" id="nama_barang" class="block mt-1 w-full" type="text" />
             <x-input-error :messages="$errors->get('nama_barang')" class="mt-2" />
+        </div>
+
+        <div>
+            <x-input-label for="spesifikasi_default" value="Spesifikasi Default (opsional)" />
+            <x-text-input wire:model="spesifikasi_default" id="spesifikasi_default" class="block mt-1 w-full"
+                type="text" placeholder="Auto-suggest/fallback saat isi transaksi keluar" />
+            <x-input-error :messages="$errors->get('spesifikasi_default')" class="mt-2" />
         </div>
 
         <div>

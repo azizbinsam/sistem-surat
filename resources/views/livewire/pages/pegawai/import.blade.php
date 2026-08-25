@@ -21,7 +21,9 @@ new #[Layout('layouts.app')] class extends Component {
         $this->errorMsg = null;
 
         try {
-            Excel::import(new PegawaiImport(auth()->user()->sekolah_id), $this->file);
+            \Illuminate\Support\Facades\DB::transaction(function () {
+                Excel::import(new PegawaiImport(auth()->user()->sekolah_id), $this->file);
+            });
             session()->flash('success', 'Import pegawai berhasil. Jangan lupa lengkapi foto tanda tangan tiap pegawai lewat menu Edit.');
             $this->redirect(route('pegawai.index'), navigate: true);
         } catch (\Maatwebsite\Excel\Validators\ValidationException $e) {
