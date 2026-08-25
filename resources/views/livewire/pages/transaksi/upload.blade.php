@@ -2,9 +2,11 @@
 
 use App\Imports\TransaksiKeluarReader;
 use App\Models\MasterBarang;
+use App\Models\Pegawai;
 use App\Models\Transaksi;
 use App\Models\TransaksiItem;
 use App\Services\BarangMatcher;
+use App\Services\NomorSuratService;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Layout;
 use Livewire\Volt\Component;
@@ -20,6 +22,8 @@ new #[Layout('layouts.app')] class extends Component {
     public array $rows = [];
     public ?string $errorMsg = null;
     public array $showCreateForm = [];
+    public array $notifGagalMappingPeminta = [];
+    public array $notifNamaBerbeda = [];
 
     public function parse(): void
     {
@@ -40,7 +44,8 @@ new #[Layout('layouts.app')] class extends Component {
                 continue;
             }
 
-            $wajib = ['tanggal', 'nomor_referensi', 'nama_barang', 'spesifikasi', 'jumlah', 'satuan', 'keperluan'];
+            // "Spesifikasi" sekarang opsional (fallback ke Nama Barang master pas generate surat)
+            $wajib = ['tanggal', 'nomor_referensi', 'nama_barang', 'jumlah', 'satuan', 'keperluan'];
             $kosong = collect($wajib)->filter(fn($k) => blank($row[$k] ?? null));
 
             if ($kosong->isNotEmpty()) {
@@ -50,11 +55,19 @@ new #[Layout('layouts.app')] class extends Component {
 
             $masterBarang = $matcher->cari($row['nama_barang'], $sekolahId);
 
+            $namaPeminta = trim((string) ($row['nama_peminta'] ?? ''));
+            $jabatanPeminta = trim((string) ($row['jabatan_peminta'] ?? ''));
+            $pihakPemintaId = null;
+
+            if ($namaPeminta && $jabatanPeminta) {
+                $pihakPemintaId = Pegawai::where('sekolah_id', $sekolahId)->where('nama', $namaPeminta)->where('jabatan', $jabatanPeminta)->value('id');
+            }
+
             $parsed[] = [
                 'tanggal' => \Carbon\Carbon::parse($row['tanggal'])->format('Y-m-d'),
                 'nomor_referensi' => trim((string) $row['nomor_referensi']),
                 'nama_barang' => trim($row['nama_barang']),
-                'spesifikasi' => trim($row['spesifikasi']),
+                'spesifikasi' => trim((string) ($row['spesifikasi'] ?? '')),
                 'jumlah' => (int) $row['jumlah'],
                 'satuan' => trim($row['satuan']),
                 'keperluan' => trim($row['keperluan']),
@@ -62,6 +75,10 @@ new #[Layout('layouts.app')] class extends Component {
                 'was_auto_matched' => $masterBarang !== null,
                 'kode_baru' => '',
                 'satuan_baru' => '',
+                'nama_peminta' => $namaPeminta,
+                'jabatan_peminta' => $jabatanPeminta,
+                'pihak_peminta_id' => $pihakPemintaId,
+                'nomor_npb_override' => trim((string) ($row['nomor_npb'] ?? '')),
             ];
         }
 
@@ -77,6 +94,24 @@ new #[Layout('layouts.app')] class extends Component {
             $this->errorMsg = 'Nomor Referensi berikut sudah pernah diupload sebelumnya: ' . $sudahAda->implode(', ');
             return;
         }
+
+        // Validasi §8.4: dalam 1 Nomor Referensi, Nama Peminta harus konsisten antar baris
+        $gagalMapping = [];
+        $namaBerbeda = [];
+        foreach (collect($parsed)->groupBy('nomor_referensi') as $referensi => $items) {
+            $namaUnik = $items->pluck('nama_peminta')->filter()->unique();
+            if ($namaUnik->count() > 1) {
+                $namaBerbeda[] = $referensi . ' (' . $namaUnik->implode(' vs ') . ')';
+            }
+
+            $adaNamaDiisi = $items->pluck('nama_peminta')->filter()->isNotEmpty();
+            $adaYangKetemu = $items->pluck('pihak_peminta_id')->filter()->isNotEmpty();
+            if ($adaNamaDiisi && !$adaYangKetemu) {
+                $gagalMapping[] = $referensi;
+            }
+        }
+        $this->notifGagalMappingPeminta = $gagalMapping;
+        $this->notifNamaBerbeda = $namaBerbeda;
 
         $this->rows = $parsed;
         $this->step = 'review';
@@ -112,7 +147,7 @@ new #[Layout('layouts.app')] class extends Component {
         $this->reset(['step', 'rows', 'file', 'errorMsg', 'showCreateForm']);
     }
 
-    public function simpan(): void
+    public function simpan(NomorSuratService $nomorService): void
     {
         $belumMapping = collect($this->rows)->filter(fn($r) => blank($r['master_barang_id']));
 
@@ -124,22 +159,47 @@ new #[Layout('layouts.app')] class extends Component {
         $sekolahId = auth()->user()->sekolah_id;
         $matcher = app(BarangMatcher::class);
 
-        DB::transaction(function () use ($sekolahId, $matcher) {
+        DB::transaction(function () use ($sekolahId, $matcher, $nomorService) {
             $grup = collect($this->rows)->groupBy('nomor_referensi');
 
             foreach ($grup as $nomorReferensi => $items) {
-                $transaksi = Transaksi::create([
+                $pihakPemintaId = $items->pluck('pihak_peminta_id')->filter()->first();
+                $nomorOverride = $items->pluck('nomor_npb_override')->filter()->first();
+                $tanggalNpb = $items->first()['tanggal'];
+
+                $dataTransaksi = [
                     'sekolah_id' => $sekolahId,
                     'nomor_referensi_asal' => $nomorReferensi,
-                    'tanggal_npb' => $items->first()['tanggal'],
+                    'tanggal_npb' => $tanggalNpb,
+                    'pihak_peminta_id' => $pihakPemintaId,
                     'status' => 'draft',
-                ]);
+                ];
+
+                if ($nomorOverride) {
+                    // Data historis: kalau cuma diisi angka urutnya aja (mis. "0012" atau "12"),
+                    // sistem susun nomor lengkap pakai format standar sekarang (kode klasifikasi +
+                    // kode sekolah + bulan dari tanggal baris itu) — biar user nggak perlu ngetik
+                    // nomor lengkap yang panjang & rawan salah ketik. Kalau isinya udah nomor
+                    // lengkap (ada tanda "/"), dipakai APA ADANYA (buat format lama yang beda).
+                    $nomorNpbFinal = ctype_digit($nomorOverride) ? $nomorService->formatNpb(auth()->user()->sekolah, \Carbon\Carbon::parse($tanggalNpb), (int) $nomorOverride) : $nomorOverride;
+
+                    // Nomor historis SENGAJA tidak mempengaruhi/menaikkan counter
+                    // nomor_urut_terakhir (PRD §8.1) — beda dari generateNomorNpb().
+                    $dataTransaksi['nomor_npb'] = $nomorNpbFinal;
+                    $dataTransaksi['nomor_spb'] = $nomorService->turunanSpb($nomorNpbFinal);
+                    $dataTransaksi['nomor_sppb'] = $nomorService->turunanSppb($nomorNpbFinal);
+                    $dataTransaksi['tanggal_spb'] = $tanggalNpb;
+                    $dataTransaksi['tanggal_sppb'] = $tanggalNpb;
+                    $dataTransaksi['status'] = 'selesai';
+                }
+
+                $transaksi = Transaksi::create($dataTransaksi);
 
                 foreach ($items as $item) {
                     TransaksiItem::create([
                         'transaksi_id' => $transaksi->id,
                         'master_barang_id' => $item['master_barang_id'],
-                        'spesifikasi' => $item['spesifikasi'],
+                        'spesifikasi' => $item['spesifikasi'] ?: null,
                         'jumlah' => $item['jumlah'],
                         'satuan' => $item['satuan'],
                         'keperluan' => $item['keperluan'],
@@ -152,7 +212,14 @@ new #[Layout('layouts.app')] class extends Component {
             }
         });
 
-        session()->flash('success', 'Data transaksi berhasil di-transpose jadi draft. Lanjutkan mapping pihak peminta di halaman berikutnya.');
+        $pesan = 'Data transaksi berhasil di-transpose jadi draft.';
+        if (!empty($this->notifGagalMappingPeminta)) {
+            $pesan .= ' Nomor Referensi yang gagal auto-mapping pihak peminta: ' . implode(', ', $this->notifGagalMappingPeminta) . ' — lengkapi manual di halaman berikutnya.';
+        } else {
+            $pesan .= ' Lanjutkan mapping pihak peminta di halaman berikutnya kalau masih ada yang kosong.';
+        }
+
+        session()->flash('success', $pesan);
         $this->redirect(route('transaksi.index'), navigate: true);
     }
 
@@ -175,8 +242,11 @@ new #[Layout('layouts.app')] class extends Component {
 
     @if ($step === 'upload')
         <div class="mb-4 p-4 bg-zinc-50 rounded-md text-sm text-zinc-700">
-            Format kolom wajib: <strong>Tanggal, Nomor Referensi, Nama Barang, Spesifikasi, Jumlah, Satuan,
-                Keperluan</strong>.
+            Kolom wajib: <strong>Tanggal, Nomor Referensi, Nama Barang, Jumlah, Satuan, Keperluan</strong>.
+            Kolom opsional: <strong>Spesifikasi</strong> (fallback ke nama barang kalau kosong),
+            <strong>Nama Peminta + Jabatan Peminta</strong> (buat auto-mapping pihak yang meminta),
+            <strong>Nomor NPB</strong> (khusus data historis: isi angka urutnya aja misal <code>0012</code>, nanti
+            otomatis dilengkapi jadi format standar — atau isi nomor lengkap kalau formatnya beda dari sekarang).
             Baris dengan Nomor Referensi sama otomatis digabung jadi 1 draft transaksi (1 bundel surat NPB+SPB+SPPB).
             <a href="{{ route('transaksi.template') }}" class="block mt-2 text-zinc-900 underline">Download Template
                 Excel</a>
@@ -206,6 +276,22 @@ new #[Layout('layouts.app')] class extends Component {
             disimpan.
         </div>
 
+        @if (!empty($notifGagalMappingPeminta))
+            <div class="mb-3 p-3 bg-amber-50 border border-amber-200 rounded-md text-sm text-amber-800">
+                Gagal auto-mapping pihak peminta (nama/jabatan nggak cocok persis dengan data Pegawai) di Nomor
+                Referensi:
+                <strong>{{ implode(', ', $notifGagalMappingPeminta) }}</strong>. Nanti bisa dilengkapi manual di halaman
+                daftar transaksi.
+            </div>
+        @endif
+
+        @if (!empty($notifNamaBerbeda))
+            <div class="mb-3 p-3 bg-red-50 border border-red-200 rounded-md text-sm text-red-800">
+                ⚠ Nama Peminta beda-beda dalam 1 Nomor Referensi (indikasi salah ketik di excel):
+                <strong>{{ implode('; ', $notifNamaBerbeda) }}</strong>.
+            </div>
+        @endif
+
         <div class="bg-white rounded-md shadow overflow-x-auto mb-4">
             <table class="min-w-full divide-y divide-gray-200 text-sm">
                 <thead class="bg-zinc-50">
@@ -217,6 +303,8 @@ new #[Layout('layouts.app')] class extends Component {
                         <th class="px-3 py-2 text-left text-xs font-medium text-zinc-600 uppercase">Jumlah</th>
                         <th class="px-3 py-2 text-left text-xs font-medium text-zinc-600 uppercase">Mapping ke Master
                             Barang</th>
+                        <th class="px-3 py-2 text-left text-xs font-medium text-zinc-600 uppercase">Peminta</th>
+                        <th class="px-3 py-2 text-left text-xs font-medium text-zinc-600 uppercase">Nomor NPB</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-200">
@@ -238,7 +326,8 @@ new #[Layout('layouts.app')] class extends Component {
                                         <option value="">-- Belum dipilih --</option>
                                         @foreach ($daftarMasterBarang as $mb)
                                             <option value="{{ $mb->id }}">{{ $mb->nama_barang }}
-                                                ({{ $mb->kode_barang }})</option>
+                                                ({{ $mb->kode_barang }})
+                                            </option>
                                         @endforeach
                                     </select>
 
@@ -263,6 +352,20 @@ new #[Layout('layouts.app')] class extends Component {
                                         </div>
                                     @endif
                                 @endif
+                            </td>
+                            <td class="px-3 py-2 text-xs">
+                                @if ($row['nama_peminta'])
+                                    @if ($row['pihak_peminta_id'])
+                                        <span class="text-green-700">✓ {{ $row['nama_peminta'] }}</span>
+                                    @else
+                                        <span class="text-amber-700">⚠ {{ $row['nama_peminta'] }} (gagal cocok)</span>
+                                    @endif
+                                @else
+                                    <span class="text-zinc-400">-</span>
+                                @endif
+                            </td>
+                            <td class="px-3 py-2 text-xs">
+                                {{ $row['nomor_npb_override'] ?: '-' }}
                             </td>
                         </tr>
                     @endforeach

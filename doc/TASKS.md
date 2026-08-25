@@ -222,12 +222,12 @@ Ditemukan pas testing Fase 11: modul Persediaan/Transaksi masih kurang lengkap b
 - [x] Combobox search buat dropdown pihak peminta (ganti `<select>` polos)
 
 ### 14.5 — Import Excel Transaksi Keluar: kolom & logic baru
-- [ ] Kolom "Spesifikasi" jadi opsional di reader/validasi
-- [ ] Kolom baru: Nama Peminta, Jabatan Peminta (opsional) — auto-mapping ke Pegawai (kombinasi nama+jabatan, exact match)
-- [ ] Notifikasi transaksi mana yang gagal auto-mapping
-- [ ] Validasi: warning kalau Nama Peminta beda-beda dalam 1 Nomor Referensi
-- [ ] Kolom baru: Nomor NPB (opsional) — override auto-generate buat data historis
-- [ ] Update template excel §7.3 (download template)
+- [x] Kolom "Spesifikasi" jadi opsional di reader/validasi
+- [x] Kolom baru: Nama Peminta, Jabatan Peminta (opsional) — auto-mapping ke Pegawai (kombinasi nama+jabatan, exact match)
+- [x] Notifikasi transaksi mana yang gagal auto-mapping
+- [x] Validasi: warning kalau Nama Peminta beda-beda dalam 1 Nomor Referensi
+- [x] Kolom baru: Nomor NPB (opsional) — override auto-generate buat data historis
+- [x] Update template excel §7.3 (download template)
 
 ### 14.6 — Penomoran: hybrid auto-generate + override
 - [ ] `NomorSuratService`: skip generate kalau `nomor_npb` udah diisi manual dari excel

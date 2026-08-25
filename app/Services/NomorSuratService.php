@@ -30,10 +30,20 @@ class NomorSuratService
         $sekolah->increment('nomor_urut_terakhir');
         $sekolah->refresh();
 
-        $urut = str_pad((string) $sekolah->nomor_urut_terakhir, 4, '0', STR_PAD_LEFT);
+        return $this->formatNpb($sekolah, $tanggal, (int) $sekolah->nomor_urut_terakhir);
+    }
+
+    /**
+     * Susun nomor NPB dari nomor urut yang sudah ditentukan (TANPA nyentuh/naikin counter
+     * nomor_urut_terakhir) — dipakai buat import data historis dari Excel yang cuma
+     * ngisi angka urutnya aja (misal "0012"), bukan nomor lengkap (PRD §8.1).
+     */
+    public function formatNpb(Sekolah $sekolah, Carbon $tanggal, int $urut): string
+    {
+        $urutFormatted = str_pad((string) $urut, 4, '0', STR_PAD_LEFT);
         $bulanRomawi = $this->romawi[$tanggal->month];
 
-        return "{$sekolah->kode_klasifikasi_surat}/{$urut}/NPB-{$sekolah->kode_sekolah}/{$bulanRomawi}/{$tanggal->year}";
+        return "{$sekolah->kode_klasifikasi_surat}/{$urutFormatted}/NPB-{$sekolah->kode_sekolah}/{$bulanRomawi}/{$tanggal->year}";
     }
 
     /**
