@@ -52,6 +52,8 @@ Route::middleware(['auth'])->group(function () {
 
     Route::prefix('transaksi')->name('transaksi.')->group(function () {
         Volt::route('/', 'pages.transaksi.index')->name('index');
+        Volt::route('create', 'pages.transaksi.create')->name('create');
+        Volt::route('{transaksi}/edit', 'pages.transaksi.edit')->name('edit');
         Volt::route('upload', 'pages.transaksi.upload')->name('upload');
 
         Route::get('template-download', function () {

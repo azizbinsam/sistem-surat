@@ -43,4 +43,25 @@ class BarangMatcher
             'spesifikasi_alias' => $spesifikasi,
         ]);
     }
+
+    /**
+     * Cari spesifikasi dari BPU terakhir buat kode barang ini (yang tanggalnya <= tanggal transaksi,
+     * biar konsisten kronologis kayak logic ledger). Dipakai sebagai fallback kalau sekolah nggak
+     * isi spesifikasi manual di transaksi keluar - data aslinya udah ada di riwayat penerimaan.
+     */
+    public function cariSpesifikasiTerakhir(int $masterBarangId, ?\Carbon\Carbon $sebelumTanggal = null): ?string
+    {
+        $item = \App\Models\BarangMasukItem::where('master_barang_id', $masterBarangId)
+            ->whereHas('barangMasuk', function ($q) use ($sebelumTanggal) {
+                if ($sebelumTanggal) {
+                    $q->where('tanggal', '<=', $sebelumTanggal->toDateString());
+                }
+            })
+            ->with('barangMasuk')
+            ->get()
+            ->sortByDesc(fn($i) => $i->barangMasuk->tanggal)
+            ->first();
+
+        return $item?->spesifikasi;
+    }
 }

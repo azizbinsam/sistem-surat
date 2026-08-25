@@ -210,16 +210,16 @@ Ditemukan pas testing Fase 11: modul Persediaan/Transaksi masih kurang lengkap b
 ### 14.3 — Penerimaan Barang (BPU): CRUD lengkap
 - [x] Form Tambah manual (dynamic multi-item, tanggal bebas)
 - [x] Form Edit
-- [ ] Delete + warning kalau berdampak ke transaksi yang udah pakai barang itu (bikin minus)
+- [x] Delete + warning kalau berdampak ke transaksi yang udah pakai barang itu (bikin minus)
 
 ### 14.4 — Transaksi Keluar: CRUD lengkap + fitur baru
-- [ ] Form Tambah manual (dynamic multi-item, tanggal bebas, spesifikasi opsional, combobox search pihak peminta)
-- [ ] Form Edit (nomor surat tidak berubah kalau statusnya udah "selesai")
-- [ ] Delete + validasi
-- [ ] Tab filter Draft / Selesai / Semua di halaman daftar
-- [ ] Action per status: Draft (mapping+generate), Selesai (edit/delete/download ulang)
-- [ ] Warning stok tidak cukup (create/edit manual maupun mapping draft) + tombol shortcut ke edit BPU terkait
-- [ ] Combobox search buat dropdown pihak peminta (ganti `<select>` polos)
+- [x] Form Tambah manual (dynamic multi-item, tanggal bebas, spesifikasi opsional, combobox search pihak peminta)
+- [x] Form Edit (nomor surat tidak berubah kalau statusnya udah "selesai")
+- [x] Delete + validasi
+- [x] Tab filter Draft / Selesai / Semua di halaman daftar
+- [x] Action per status: Draft (mapping+generate), Selesai (edit/delete/download ulang)
+- [x] Warning stok tidak cukup (create/edit manual maupun mapping draft) + tombol shortcut ke edit BPU terkait
+- [x] Combobox search buat dropdown pihak peminta (ganti `<select>` polos)
 
 ### 14.5 — Import Excel Transaksi Keluar: kolom & logic baru
 - [ ] Kolom "Spesifikasi" jadi opsional di reader/validasi

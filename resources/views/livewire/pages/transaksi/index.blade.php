@@ -4,17 +4,29 @@ use App\Models\Pegawai;
 use App\Models\Transaksi;
 use App\Services\NomorSuratService;
 use App\Services\PersediaanService;
+use App\Services\SuratPdfGenerator;
 use App\Services\SuratWordGenerator;
 use Illuminate\Support\Str;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Url;
 use Livewire\Volt\Component;
 use Livewire\WithPagination;
 
 new #[Layout('layouts.app')] class extends Component {
     use WithPagination;
 
+    #[Url]
+    public string $tab = 'draft'; // draft | selesai | semua
+
     public array $pihakPeminta = [];
+    public array $selected = [];
     public ?string $errorMsg = null;
+
+    public function updatedTab(): void
+    {
+        $this->resetPage();
+        $this->selected = [];
+    }
 
     public function updated($name, $value): void
     {
@@ -22,14 +34,21 @@ new #[Layout('layouts.app')] class extends Component {
             $transaksiId = (int) Str::after($name, 'pihakPeminta.');
 
             $transaksi = Transaksi::where('sekolah_id', auth()->user()->sekolah_id)->findOrFail($transaksiId);
-
             $transaksi->update(['pihak_peminta_id' => $value ?: null]);
 
             session()->flash('success', 'Pihak peminta berhasil diperbarui.');
         }
     }
 
-    public function generate(int $transaksiId, string $format, NomorSuratService $nomorService, SuratWordGenerator $wordGenerator, \App\Services\SuratPdfGenerator $pdfGenerator)
+    public function hapus(int $transaksiId): void
+    {
+        $transaksi = Transaksi::where('sekolah_id', auth()->user()->sekolah_id)->findOrFail($transaksiId);
+        $transaksi->delete(); // items ikut kehapus via cascade, otomatis ngefek ke ledger (live-computed)
+
+        session()->flash('success', 'Transaksi berhasil dihapus.');
+    }
+
+    public function generate(int $transaksiId, string $format, NomorSuratService $nomorService, SuratWordGenerator $wordGenerator, SuratPdfGenerator $pdfGenerator)
     {
         $this->errorMsg = null;
 
@@ -57,14 +76,14 @@ new #[Layout('layouts.app')] class extends Component {
 
         $path = $format === 'pdf' ? $pdfGenerator->generate($transaksi) : $wordGenerator->generate($transaksi);
 
-        $transaksi->update(['status' => 'selesai']);
+        if ($transaksi->status !== 'selesai') {
+            $transaksi->update(['status' => 'selesai']);
+        }
 
         return response()->download($path)->deleteFileAfterSend(true);
     }
 
-    public array $selected = [];
-
-    public function generateBulk(string $format, NomorSuratService $nomorService, SuratWordGenerator $wordGenerator, \App\Services\SuratPdfGenerator $pdfGenerator)
+    public function generateBulk(string $format, NomorSuratService $nomorService, SuratWordGenerator $wordGenerator, SuratPdfGenerator $pdfGenerator)
     {
         $this->errorMsg = null;
 
@@ -88,7 +107,6 @@ new #[Layout('layouts.app')] class extends Component {
         foreach ($transaksiList as $transaksi) {
             if (!$transaksi->nomor_npb) {
                 $nomorNpb = $nomorService->generateNomorNpb($transaksi->sekolah, $transaksi->tanggal_npb);
-
                 $transaksi->update([
                     'nomor_npb' => $nomorNpb,
                     'nomor_spb' => $nomorService->turunanSpb($nomorNpb),
@@ -101,7 +119,9 @@ new #[Layout('layouts.app')] class extends Component {
 
             $paths[] = $format === 'pdf' ? $pdfGenerator->generate($transaksi) : $wordGenerator->generate($transaksi);
 
-            $transaksi->update(['status' => 'selesai']);
+            if ($transaksi->status !== 'selesai') {
+                $transaksi->update(['status' => 'selesai']);
+            }
         }
 
         $zipPath = storage_path('app/generated/bulk_surat_' . now()->timestamp . '.zip');
@@ -111,9 +131,8 @@ new #[Layout('layouts.app')] class extends Component {
             $zip->addFile($path, basename($path));
         }
         $zip->close();
-
         foreach ($paths as $path) {
-            @unlink($path); // hapus file individual, sisain zip-nya aja
+            @unlink($path);
         }
 
         $this->selected = [];
@@ -123,15 +142,20 @@ new #[Layout('layouts.app')] class extends Component {
 
     public function with(PersediaanService $service): array
     {
-        $daftarTransaksi = Transaksi::where('sekolah_id', auth()->user()->sekolah_id)
-            ->where('status', 'draft')
+        $query = Transaksi::where('sekolah_id', auth()->user()->sekolah_id)
             ->withCount('items')
-            ->with('items.masterBarang')
-            ->orderByDesc('tanggal_npb')
-            ->paginate(10);
+            ->with('items.masterBarang', 'pihakPeminta');
+
+        if ($this->tab === 'draft') {
+            $query->where('status', 'draft');
+        } elseif ($this->tab === 'selesai') {
+            $query->where('status', 'selesai');
+        }
+
+        $daftarTransaksi = $query->orderByDesc('tanggal_npb')->paginate(10);
 
         foreach ($daftarTransaksi as $t) {
-            if (!array_key_exists($t->id, $this->pihakPeminta)) {
+            if ($t->status === 'draft' && !array_key_exists($t->id, $this->pihakPeminta)) {
                 $this->pihakPeminta[$t->id] = $t->pihak_peminta_id;
             }
 
@@ -145,110 +169,158 @@ new #[Layout('layouts.app')] class extends Component {
             'daftarPegawai' => Pegawai::where('sekolah_id', auth()->user()->sekolah_id)
                 ->orderBy('nama')
                 ->get(),
+            'jumlahDraft' => Transaksi::where('sekolah_id', auth()->user()->sekolah_id)
+                ->where('status', 'draft')
+                ->count(),
+            'jumlahSelesai' => Transaksi::where('sekolah_id', auth()->user()->sekolah_id)
+                ->where('status', 'selesai')
+                ->count(),
         ];
     }
 }; ?>
 
 <div>
-    <div class="flex justify-between items-center mb-4">
-        <h2 class="text-lg font-semibold text-zinc-900">Draft Transaksi (Belum Digenerate)</h2>
-        <a href="{{ route('transaksi.upload') }}" wire:navigate>
-            <x-primary-button>+ Upload Transaksi Keluar</x-primary-button>
-        </a>
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+        <div>
+            <h1 class="text-2xl font-bold text-zinc-900">Transaksi Keluar</h1>
+            <p class="text-sm text-zinc-500 mt-1">Kelola permintaan barang & generate surat.</p>
+        </div>
+        <div class="flex gap-2">
+            <a href="{{ route('transaksi.create') }}" wire:navigate>
+                <x-secondary-button>+ Tambah Manual</x-secondary-button>
+            </a>
+            <a href="{{ route('transaksi.upload') }}" wire:navigate>
+                <x-primary-button>+ Upload Excel</x-primary-button>
+            </a>
+        </div>
     </div>
 
     @if (session('success'))
-        <div class="mb-4 p-3 bg-zinc-100 text-zinc-800 rounded-md text-sm">{{ session('success') }}</div>
+        <div class="mb-4 p-3 bg-emerald-50 text-emerald-700 rounded-lg text-sm border border-emerald-100">
+            {{ session('success') }}</div>
     @endif
-
     @if ($errorMsg)
-        <div class="mb-4 p-3 bg-red-50 text-red-700 rounded-md text-sm">{{ $errorMsg }}</div>
+        <div class="mb-4 p-3 bg-red-50 text-red-700 rounded-lg text-sm border border-red-100">{{ $errorMsg }}</div>
     @endif
 
-    @if (count($selected) > 0)
-        <div class="mb-3 p-3 bg-zinc-100 rounded-md flex items-center justify-between">
+    {{-- TAB FILTER --}}
+    <div class="flex gap-1 mb-4 border-b border-zinc-200">
+        <button wire:click="$set('tab', 'draft')"
+            class="px-4 py-2 text-sm font-medium border-b-2 -mb-px {{ $tab === 'draft' ? 'border-emerald-600 text-emerald-600' : 'border-transparent text-zinc-500 hover:text-zinc-700' }}">
+            Draft ({{ $jumlahDraft }})
+        </button>
+        <button wire:click="$set('tab', 'selesai')"
+            class="px-4 py-2 text-sm font-medium border-b-2 -mb-px {{ $tab === 'selesai' ? 'border-emerald-600 text-emerald-600' : 'border-transparent text-zinc-500 hover:text-zinc-700' }}">
+            Selesai ({{ $jumlahSelesai }})
+        </button>
+        <button wire:click="$set('tab', 'semua')"
+            class="px-4 py-2 text-sm font-medium border-b-2 -mb-px {{ $tab === 'semua' ? 'border-emerald-600 text-emerald-600' : 'border-transparent text-zinc-500 hover:text-zinc-700' }}">
+            Semua
+        </button>
+    </div>
+
+    @if ($tab === 'draft' && count($selected) > 0)
+        <div class="mb-3 p-3 bg-zinc-100 rounded-lg flex items-center justify-between">
             <span class="text-sm text-zinc-700">{{ count($selected) }} transaksi dipilih</span>
             <div class="space-x-2">
                 <button wire:click="generateBulk('docx')" wire:loading.attr="disabled"
-                    class="px-3 py-1.5 bg-zinc-800 text-white text-xs rounded hover:bg-zinc-700">
-                    Generate Word (ZIP)
-                </button>
+                    class="px-3 py-1.5 bg-zinc-800 text-white text-xs rounded-lg hover:bg-zinc-700">Generate Word
+                    (ZIP)</button>
                 <button wire:click="generateBulk('pdf')" wire:loading.attr="disabled"
-                    class="px-3 py-1.5 bg-zinc-800 text-white text-xs rounded hover:bg-zinc-700">
-                    Generate PDF (ZIP)
-                </button>
+                    class="px-3 py-1.5 bg-zinc-600 text-white text-xs rounded-lg hover:bg-zinc-500">Generate PDF
+                    (ZIP)</button>
             </div>
         </div>
     @endif
 
-    <div class="bg-white rounded-md shadow overflow-x-auto">
-        <table class="min-w-full divide-y divide-gray-200">
+    <div class="bg-white rounded-xl border border-zinc-100 shadow-sm overflow-hidden">
+        <table class="min-w-full divide-y divide-zinc-100">
             <thead class="bg-zinc-50">
                 <tr>
-                    <th class="px-4 py-2 text-left">
-                        <input type="checkbox"
-                            wire:click="$set('selected', $event.target.checked ? {{ $daftarTransaksi->pluck('id') }} : [])">
+                    @if ($tab === 'draft')
+                        <th class="px-4 py-3">
+                            <input type="checkbox"
+                                wire:click="$set('selected', $event.target.checked ? {{ $daftarTransaksi->pluck('id') }} : [])">
+                        </th>
+                    @endif
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-zinc-500 uppercase tracking-wider">No.
+                        Referensi</th>
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-zinc-500 uppercase tracking-wider">Nomor
+                        Surat</th>
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-zinc-500 uppercase tracking-wider">Tanggal
                     </th>
-                    <th class="px-4 py-2 text-left text-xs font-medium text-zinc-600 uppercase">No. Referensi</th>
-                    <th class="px-4 py-2 text-left text-xs font-medium text-zinc-600 uppercase">Tanggal</th>
-                    <th class="px-4 py-2 text-left text-xs font-medium text-zinc-600 uppercase">Rincian Barang</th>
-                    <th class="px-4 py-2 text-left text-xs font-medium text-zinc-600 uppercase">Pihak yang Meminta</th>
-                    <th class="px-4 py-2 text-right text-xs font-medium text-zinc-600 uppercase">Aksi</th>
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-zinc-500 uppercase tracking-wider">Rincian
+                        Barang</th>
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-zinc-500 uppercase tracking-wider">Pihak
+                        Meminta</th>
+                    <th class="px-4 py-3 text-right text-xs font-semibold text-zinc-500 uppercase tracking-wider">Aksi
+                    </th>
                 </tr>
             </thead>
-            <tbody class="divide-y divide-gray-200">
+            <tbody class="divide-y divide-zinc-100">
                 @forelse ($daftarTransaksi as $t)
-                    <tr wire:key="transaksi-{{ $t->id }}">
-                        <td class="px-4 py-2">
-                            <input type="checkbox" wire:model="selected" value="{{ $t->id }}">
-                        </td>
-                        <td class="px-4 py-2 text-sm font-medium">{{ $t->nomor_referensi_asal }}</td>
-                        <td class="px-4 py-2 text-sm">{{ $t->tanggal_npb->format('d-m-Y') }}</td>
-                        <td class="px-4 py-2 text-sm text-gray-600">
+                    <tr wire:key="transaksi-{{ $t->id }}" class="hover:bg-zinc-50">
+                        @if ($tab === 'draft')
+                            <td class="px-4 py-3"><input type="checkbox" wire:model="selected"
+                                    value="{{ $t->id }}"></td>
+                        @endif
+                        <td class="px-4 py-3 text-sm font-medium text-zinc-900">{{ $t->nomor_referensi_asal }}</td>
+                        <td class="px-4 py-3 text-sm text-zinc-500">{{ $t->nomor_npb ?? '-' }}</td>
+                        <td class="px-4 py-3 text-sm text-zinc-500">{{ $t->tanggal_npb->format('d-m-Y') }}</td>
+                        <td class="px-4 py-3 text-sm text-zinc-600">
                             <ul class="space-y-0.5">
                                 @foreach ($t->items as $item)
                                     <li>
-                                        {{ $item->masterBarang->nama_barang }} — diminta {{ $item->jumlah }}
-                                        {{ $item->satuan }},
-                                        sisa sebelum transaksi:
-                                        <span
-                                            class="{{ $item->sisa_sebelum < $item->jumlah ? 'text-red-600 font-semibold' : 'text-zinc-700' }}">
-                                            {{ $item->sisa_sebelum }}
-                                        </span>
+                                        {{ $item->masterBarang->nama_barang }} — {{ $item->jumlah }}
+                                        {{ $item->satuan }}
                                         @if ($item->sisa_sebelum < $item->jumlah)
-                                            <span class="text-red-600 text-xs">⚠ stok tidak cukup</span>
+                                            <a href="{{ route('persediaan.riwayat', $item->masterBarang) }}"
+                                                wire:navigate class="text-red-600 text-xs underline">⚠ stok kurang, cek
+                                                riwayat BPU</a>
                                         @endif
                                     </li>
                                 @endforeach
                             </ul>
                         </td>
-                        <td class="px-4 py-2 text-sm">
-                            <select wire:model.live="pihakPeminta.{{ $t->id }}"
-                                class="w-full text-sm border-gray-300 rounded-md focus:border-zinc-500 focus:ring-zinc-500">
-                                <option value="">-- Belum dipilih --</option>
-                                @foreach ($daftarPegawai as $p)
-                                    <option value="{{ $p->id }}">{{ $p->nama }} ({{ $p->jabatan }})
-                                    </option>
-                                @endforeach
-                            </select>
+                        <td class="px-4 py-3 text-sm">
+                            @if ($tab === 'draft')
+                                <x-combobox :options="$daftarPegawai->map(
+                                    fn($p) => ['id' => $p->id, 'label' => $p->nama . ' (' . $p->jabatan . ')'],
+                                )" :model="'pihakPeminta.' . $t->id" placeholder="Cari pegawai..." />
+                            @else
+                                {{ $t->pihakPeminta->nama ?? '-' }}
+                            @endif
                         </td>
-                        <td class="px-4 py-2 text-sm text-right space-x-1">
-                            <button wire:click="generate({{ $t->id }}, 'docx')" wire:loading.attr="disabled"
-                                wire:target="generate({{ $t->id }}, 'docx')"
-                                class="px-2 py-1 bg-zinc-800 text-white text-xs rounded hover:bg-zinc-700 disabled:opacity-50">
-                                Word
-                            </button>
-                            <button wire:click="generate({{ $t->id }}, 'pdf')" wire:loading.attr="disabled"
-                                wire:target="generate({{ $t->id }}, 'pdf')"
-                                class="px-2 py-1 bg-zinc-800 text-white text-xs rounded hover:bg-zinc-700 disabled:opacity-50">
-                                PDF
-                            </button>
+                        <td class="px-4 py-3 text-sm text-right space-x-1 whitespace-nowrap">
+                            @if ($t->status === 'draft')
+                                <button wire:click="generate({{ $t->id }}, 'docx')" wire:loading.attr="disabled"
+                                    class="px-2 py-1 bg-zinc-800 text-white text-xs rounded-lg hover:bg-zinc-700">Word</button>
+                                <button wire:click="generate({{ $t->id }}, 'pdf')" wire:loading.attr="disabled"
+                                    class="px-2 py-1 bg-zinc-600 text-white text-xs rounded-lg hover:bg-zinc-500">PDF</button>
+                            @else
+                                <a href="{{ route('transaksi.edit', $t) }}" wire:navigate
+                                    class="text-zinc-500 hover:text-emerald-600 font-medium">Edit</a>
+                                <button wire:click="generate({{ $t->id }}, 'docx')" wire:loading.attr="disabled"
+                                    class="text-zinc-500 hover:text-emerald-600 font-medium">Word</button>
+                                <button wire:click="generate({{ $t->id }}, 'pdf')" wire:loading.attr="disabled"
+                                    class="text-zinc-500 hover:text-emerald-600 font-medium">PDF</button>
+                                <button wire:click="hapus({{ $t->id }})"
+                                    wire:confirm="Yakin hapus transaksi ini? Nomor surat {{ $t->nomor_npb }} akan hilang."
+                                    class="text-red-500 hover:text-red-700 font-medium">Hapus</button>
+                            @endif
                         </td>
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="4" class="px-4 py-6 text-center text-sm text-gray-500">Belum ada draft
-                            transaksi.</td>
+                        <td colspan="7" class="px-5 py-16 text-center text-sm text-zinc-500">
+                            @if ($tab === 'draft')
+                                Belum ada draft transaksi.
+                            @elseif ($tab === 'selesai')
+                                Belum ada transaksi yang selesai digenerate.
+                            @else
+                                Belum ada data transaksi.
+                            @endif
+                        </td>
                     </tr>
                 @endforelse
             </tbody>
