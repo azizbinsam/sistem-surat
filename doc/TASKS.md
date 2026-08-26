@@ -234,6 +234,6 @@ Ditemukan pas testing Fase 11: modul Persediaan/Transaksi masih kurang lengkap b
 - [x] Field "Nomor Urut Terakhir" jadi editable di halaman Pengaturan Sekolah
 
 ### 14.7 — Koreksi Stok: reposisi (dokumentasi/UX, bukan perubahan skema)
-- [ ] Update helper text di form Koreksi Stok, perjelas ini khusus kasus fisik (rusak/hilang/opname), bukan buat benerin salah input lagi
+- [x] Update helper text di form Koreksi Stok, perjelas ini khusus kasus fisik (rusak/hilang/opname), bukan buat benerin salah input lagi
 
 Detail command tiap fase (composer require spesifik, artisan make:model, dst) akan saya tulis lengkap pas kita mulai fase itu.

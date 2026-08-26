@@ -57,8 +57,21 @@ new #[Layout('layouts.app')] class extends Component {
     <h2 class="text-lg font-semibold text-zinc-900 mb-4">Koreksi Stok</h2>
 
     <div class="mb-4 p-3 bg-zinc-50 rounded-md text-sm text-zinc-700">
-        Gunakan fitur ini untuk mencatat selisih stok fisik (misal hasil opname, barang rusak/hilang).
-        Ini bukan mengubah angka langsung, tapi menambah entri baru di riwayat ledger — supaya tetap ada jejak audit.
+        <p>
+            Gunakan fitur ini <strong>khusus buat kejadian fisik nyata</strong> di lapangan — misalnya hasil opname
+            stok, barang rusak, hilang, atau kadaluarsa. Setiap koreksi nambah entri baru di riwayat ledger (bukan
+            nimpa angka lama), jadi tetap ada jejak audit kenapa stok berubah.
+        </p>
+        <p class="mt-2">
+            ⚠ <strong>Kalau ini soal salah ketik/salah input</strong> waktu nyatet penerimaan barang atau transaksi
+            keluar (misal jumlahnya kebalik, kelebihan angka nol, salah tanggal), <strong>jangan pakai Koreksi
+                Stok</strong> — langsung edit datanya di
+            <a href="{{ route('barang-masuk.index') }}" wire:navigate class="underline font-medium">Penerimaan
+                Barang</a> atau
+            <a href="{{ route('transaksi.index') }}" wire:navigate class="underline font-medium">Transaksi Keluar</a>.
+            Ini penting biar ledger tetap merefleksikan kejadian fisik yang beneran terjadi, bukan numpuk catatan
+            perbaikan kesalahan administrasi.
+        </p>
     </div>
 
     @if (session('success'))
@@ -107,7 +120,7 @@ new #[Layout('layouts.app')] class extends Component {
             <x-input-label for="alasan" value="Alasan (wajib diisi)" />
             <textarea wire:model="alasan" id="alasan" rows="3"
                 class="block mt-1 w-full border-gray-300 rounded-md shadow-sm focus:border-zinc-500 focus:ring-zinc-500"
-                placeholder="Misal: selisih stok opname fisik bulan April, barang rusak, dst"></textarea>
+                placeholder="Misal: hasil opname fisik bulan April ditemukan selisih, 2 rim kertas rusak kena air, kadaluarsa dan dibuang"></textarea>
             <x-input-error :messages="$errors->get('alasan')" class="mt-2" />
         </div>
 
