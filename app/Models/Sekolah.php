@@ -29,6 +29,7 @@ class Sekolah extends Model
         'format_kode_npb',
         'format_kode_spb',
         'format_kode_sppb',
+        'nomor_urut_terakhir',
     ];
 
     public function users(): HasMany

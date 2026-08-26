@@ -230,8 +230,8 @@ Ditemukan pas testing Fase 11: modul Persediaan/Transaksi masih kurang lengkap b
 - [x] Update template excel §7.3 (download template)
 
 ### 14.6 — Penomoran: hybrid auto-generate + override
-- [ ] `NomorSuratService`: skip generate kalau `nomor_npb` udah diisi manual dari excel
-- [ ] Field "Nomor Urut Terakhir" jadi editable di halaman Pengaturan Sekolah
+- [x] `NomorSuratService`: skip generate kalau `nomor_npb` udah diisi manual dari excel
+- [x] Field "Nomor Urut Terakhir" jadi editable di halaman Pengaturan Sekolah
 
 ### 14.7 — Koreksi Stok: reposisi (dokumentasi/UX, bukan perubahan skema)
 - [ ] Update helper text di form Koreksi Stok, perjelas ini khusus kasus fisik (rusak/hilang/opname), bukan buat benerin salah input lagi

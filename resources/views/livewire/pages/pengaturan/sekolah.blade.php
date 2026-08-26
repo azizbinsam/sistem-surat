@@ -24,6 +24,7 @@ new #[Layout('layouts.app')] class extends Component {
     public string $email = '';
     public string $jabatan_resmi_sppb = '';
     public string $kode_klasifikasi_surat = '';
+    public int $nomor_urut_terakhir = 0;
 
     public $logo_sekolah_baru;
     public $logo_kabupaten_baru;
@@ -46,6 +47,7 @@ new #[Layout('layouts.app')] class extends Component {
         $this->email = $this->sekolah->email ?? '';
         $this->jabatan_resmi_sppb = $this->sekolah->jabatan_resmi_sppb;
         $this->kode_klasifikasi_surat = $this->sekolah->kode_klasifikasi_surat;
+        $this->nomor_urut_terakhir = $this->sekolah->nomor_urut_terakhir;
     }
 
     public function simpanProfil(): void
@@ -62,6 +64,7 @@ new #[Layout('layouts.app')] class extends Component {
             'email' => ['nullable', 'email', 'max:255'],
             'jabatan_resmi_sppb' => ['required', 'string', 'max:255'],
             'kode_klasifikasi_surat' => ['required', 'string', 'max:50'],
+            'nomor_urut_terakhir' => ['required', 'integer', 'min:0'],
             'logo_sekolah_baru' => ['nullable', 'image', 'max:2048'],
             'logo_kabupaten_baru' => ['nullable', 'image', 'max:2048'],
         ]);
@@ -199,6 +202,17 @@ new #[Layout('layouts.app')] class extends Component {
                 <x-text-input wire:model="kode_klasifikasi_surat" id="kode_klasifikasi_surat" class="block mt-1 w-full"
                     type="text" />
                 <x-input-error :messages="$errors->get('kode_klasifikasi_surat')" class="mt-2" />
+            </div>
+
+            <div>
+                <x-input-label for="nomor_urut_terakhir" value="Nomor Urut Terakhir" />
+                <x-text-input wire:model="nomor_urut_terakhir" id="nomor_urut_terakhir" class="block mt-1 w-full"
+                    type="number" min="0" />
+                <p class="mt-1 text-xs text-amber-700">
+                    ⚠ Nomor NPB berikutnya akan mulai dari angka ini + 1. Ubah cuma buat lanjutin urutan dari
+                    pencatatan kertas lama — salah isi bisa bikin nomor surat baru bentrok/melompat.
+                </p>
+                <x-input-error :messages="$errors->get('nomor_urut_terakhir')" class="mt-2" />
             </div>
 
             <x-primary-button>Simpan Perubahan</x-primary-button>
