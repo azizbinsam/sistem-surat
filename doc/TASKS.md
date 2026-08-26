@@ -236,4 +236,54 @@ Ditemukan pas testing Fase 11: modul Persediaan/Transaksi masih kurang lengkap b
 ### 14.7 — Koreksi Stok: reposisi (dokumentasi/UX, bukan perubahan skema)
 - [x] Update helper text di form Koreksi Stok, perjelas ini khusus kasus fisik (rusak/hilang/opname), bukan buat benerin salah input lagi
 
+## v1.1 — Perubahan Arah Produk (lihat PRD.md §12-13 untuk detail keputusan)
+
+### 15 — Tahun Anggaran (fondasi, prioritas tertinggi di v1.1)
+- [ ] Migration: tabel `tahun_anggaran` (sekolah_id, tahun, nomor_urut_terakhir, is_aktif; unique sekolah_id+tahun)
+- [ ] Migration: tambah kolom `tahun_anggaran_id` ke master_barang, pegawai, barang_masuk, transaksi, koreksi_stok
+- [ ] Migration: hapus `nomor_urut_terakhir` dari `sekolah` (udah pindah ke tahun_anggaran)
+- [ ] Data seeding/backfill: bikinin 1 tahun anggaran default per sekolah existing, assign semua data lama ke situ (nomor_urut_terakhir lama ikut pindah nilainya)
+- [ ] `NomorSuratService`: pakai `tahun_anggaran.nomor_urut_terakhir` (bukan lagi `sekolah.nomor_urut_terakhir`)
+- [ ] Middleware/helper: resolve "tahun anggaran aktif" dari session, fallback ke tahun anggaran `is_aktif` terbaru
+- [ ] Scope semua query (master barang, pegawai, BPU, transaksi, koreksi stok) by tahun anggaran aktif
+- [ ] Halaman Pengaturan Sekolah: pindahkan field "Nomor Urut Terakhir" (Fase 14.6) supaya ngedit punya tahun anggaran aktif, bukan sekolah
+
+### 16 — NPSN Unik + Navigasi Dropdown
+- [ ] Validasi unique `kode_sekolah` di form Lengkapi Profil & Pengaturan Sekolah
+- [ ] Migration: unique constraint di kolom `sekolah.kode_sekolah`
+- [ ] Dropdown Tahun Anggaran di pojok kanan dashboard (pilih dari tahun anggaran yang sudah dibuka superadmin — tidak ada opsi bikin baru di sisi sekolah)
+- [ ] Dropdown Profil di pojok kanan dashboard (link Pengaturan Sekolah + tombol Logout), hapus link lama di tempat sebelumnya
+
+### 17 — Rapikan Master Barang, Barang Masuk & Pegawai
+- [ ] Sort per kolom di index Master Barang, Barang Masuk, dan Pegawai
+- [ ] Filter (kategori/kata kunci) di index Master Barang, Barang Masuk, dan Pegawai
+- [ ] Ganti pagination view default Laravel ke view custom (fix tampilan gelap di tema terang) — berlaku di ketiganya
+- [ ] Rapikan tampilan halaman Upload (step upload & review) Master Barang dan Barang Masuk
+
+### 18 — Transaksi Keluar: Sederhanakan UI
+- [ ] Hapus sistem tab Draft/Selesai/Semua, gabung jadi 1 daftar dengan badge status (badge udah ada)
+- [ ] Samakan fitur tampilan (sort/filter/pagination) dengan Barang Masuk (Fase 17)
+- [ ] Rapikan tampilan halaman Upload Transaksi Keluar (step upload & review)
+
+### 19 — Dashboard v2
+- [ ] Install Chart.js (atau chart wrapper yang kompatibel Livewire/Volt)
+- [ ] Chart: tren Barang Masuk vs Transaksi Keluar per bulan
+- [ ] Chart: top 5 barang paling sering keluar
+- [ ] Info: jumlah transaksi Draft vs Selesai
+- [ ] Alert: barang dengan sisa stok menipis
+- [ ] Section info donasi (ambil dari `rekening_donasi`, Fase 20)
+
+### 20 — Panel Admin: Tahun Anggaran, Pengaturan Aplikasi & Donasi
+- [ ] Filament resource/action: "Buka Tahun Anggaran Baru" — bikin 1 baris tahun_anggaran baru untuk SEMUA sekolah sekaligus (loop semua sekolah, insert tahun_anggaran baru dengan nomor_urut_terakhir=0, set is_aktif lama jadi false)
+- [ ] Migration: tabel `app_settings` (singleton) dan `rekening_donasi`
+- [ ] Filament resource: Pengaturan Aplikasi (nama aplikasi, upload logo aplikasi)
+- [ ] Filament resource: Rekening Donasi (CRUD, upload foto bukti/QRIS)
+- [ ] Landing page & dashboard baca nama/logo aplikasi dari `app_settings` (bukan hardcoded)
+
+### 21 — Pengaturan Sekolah: Layout 2 Kolom
+- [ ] Reflow form jadi 2 kolom di desktop (identitas sekolah | kop surat & penomoran), tetap 1 kolom di mobile
+
+### 22 — Landing Page v2
+- [ ] Desain ulang dari nol: hero, fitur, ajakan coba gratis, section donasi
+
 Detail command tiap fase (composer require spesifik, artisan make:model, dst) akan saya tulis lengkap pas kita mulai fase itu.

@@ -40,7 +40,7 @@ Data profil sekolah (1 row = 1 tenant).
 | email | string | |
 | logo_sekolah | string nullable | path storage |
 | logo_kabupaten | string nullable | path storage |
-| kode_sekolah | string | dipakai di format nomor surat, misal `SDN3RKST` |
+| kode_sekolah | string **unique** | dipakai di format nomor surat, misal `SDN3RKST` — unique secara sistem sejak v1.1 (§6.2), 1 NPSN cuma boleh 1 akun |
 | nama_dinas | string | untuk kop surat, misal "DINAS PENDIDIKAN" |
 | nama_korwil | string nullable | untuk kop surat, misal "KORWIL SATUAN PENDIDIKAN" — nullable karena tidak semua daerah pakai |
 | jabatan_resmi_sppb | string | default "Kuasa Pengguna Barang" — label jabatan yang dicetak di TTD SPPB, terpisah dari `pegawai.jabatan` milik Kepala Sekolah |
@@ -229,3 +229,55 @@ Urutan bikin migration (biar foreign key nggak error):
 12. `transaksi_item`
 
 Detail command & kode migration akan digenerate step-by-step pas eksekusi Fase 2 di `TASKS.md`.
+
+---
+
+## 6. Perubahan Skema v1.1 (Tahun Anggaran, Admin Panel)
+
+### `tahun_anggaran` (tabel baru)
+Unit pemisah data utama sejak v1.1 — 1 sekolah punya banyak baris (2026, 2027, dst).
+| Kolom | Tipe | Ket |
+|---|---|---|
+| id | bigint PK | |
+| sekolah_id | FK → sekolah | |
+| tahun | integer | misal 2026 |
+| nomor_urut_terakhir | integer, default 0 | **pindah dari `sekolah`** — sekarang reset per tahun anggaran, bukan seumur hidup sekolah |
+| is_aktif | boolean, default true | penanda tahun anggaran mana yang jadi default kalau session belum pilih apa-apa (biasanya yang terbaru) |
+
+Constraint: unique(`sekolah_id`, `tahun`).
+
+Baris baru di tabel ini HANYA dibuat lewat aksi superadmin "Buka Tahun Anggaran Baru" di Panel Admin (Fase 20) — sekali aksi bikin 1 baris untuk setiap sekolah sekaligus. Sekolah tidak punya endpoint/UI buat insert baris baru sendiri.
+
+### Kolom baru `tahun_anggaran_id` (FK → tahun_anggaran, cascadeOnDelete) ditambahkan ke:
+- `master_barang`
+- `pegawai`
+- `barang_masuk`
+- `transaksi`
+- `koreksi_stok`
+
+Semua query di tabel-tabel ini WAJIB di-scope by `tahun_anggaran_id` (tahun anggaran aktif dari session), selain scope `sekolah_id` yang sudah ada. `barang_alias` tetap ikut `sekolah_id` saja (bukan per tahun — alias nama barang ke kode barang itu independen dari tahun anggaran, tapi tetap perlu dicek `master_barang_id`-nya valid di tahun anggaran aktif saat dipakai).
+
+### Kolom yang DIHAPUS dari `sekolah`
+- `nomor_urut_terakhir` → pindah ke `tahun_anggaran.nomor_urut_terakhir` (lihat di atas).
+
+### `sekolah.kode_sekolah` jadi **unique**
+Proteksi "1 sekolah 1 akun" (§6.2) — kode_sekolah dipakai sebagai representasi NPSN.
+
+### `app_settings` (tabel baru — dikelola dari Panel Admin, bukan per-sekolah)
+Baris tunggal (singleton), bukan per-tenant.
+| Kolom | Tipe | Ket |
+|---|---|---|
+| id | bigint PK | |
+| nama_aplikasi | string | ditampilkan di landing page & dashboard |
+| logo_aplikasi | string nullable | path storage |
+
+### `rekening_donasi` (tabel baru — dikelola dari Panel Admin, bisa lebih dari satu baris)
+| Kolom | Tipe | Ket |
+|---|---|---|
+| id | bigint PK | |
+| nama_bank | string | |
+| nomor_rekening | string | |
+| atas_nama | string | |
+| foto | string nullable | path storage — bisa foto buku rekening atau QRIS |
+| urutan | integer, default 0 | buat kontrol urutan tampil |
+

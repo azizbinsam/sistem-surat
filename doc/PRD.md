@@ -279,3 +279,99 @@ Sisa Persediaan (kode barang X, per tanggal cutoff T) =
 
 Lihat `TASKS.md` untuk checklist detail per fase development.
 Kalau sesi chat terputus, gunakan `CONTINUATION_PROMPT.md`.
+
+---
+
+## 12. Perubahan Arah Produk (v1.1)
+
+Hasil diskusi setelah Fase 14 selesai. Model bisnis, struktur data, dan beberapa UI berubah cukup fundamental — subscription resmi ditunda, aplikasi jalan gratis dulu dengan donasi opsional, dan konsep **Tahun Anggaran** jadi unit pemisah data utama.
+
+### 12.1 Model Bisnis: Gratis + Donasi (menggantikan sementara Fase 9)
+
+- Semua fitur bisa dipakai gratis tanpa subscription aktif. Middleware cek subscription (Fase 9) tetap ditunda — tidak ada gate apa pun.
+- Tombol/info donasi muncul di landing page dan dashboard.
+- Data rekening donasi (bank, nomor rekening, atas nama, foto bukti rekening — bisa lebih dari satu) diinput lewat **Panel Admin** (lihat §12.5), bukan per-sekolah, karena ini milik platform/Delix Studio.
+
+### 12.2 Satu Sekolah, Satu Akun
+
+- **NPSN (kolom `kode_sekolah`) harus unik secara sistem.** Sekolah yang NPSN-nya sudah dipakai akun lain tidak bisa mendaftarkan/melengkapi profil dengan NPSN yang sama.
+- Ini murni proteksi duplikasi sekolah (bukan multi-user per sekolah — itu tetap Out of Scope v1, lihat §10).
+
+### 12.3 Tahun Anggaran
+
+Konsep baru: setiap sekolah punya banyak "Tahun Anggaran" (2026, 2027, dst), dan sebagian besar data transaksional terpisah total antar tahun anggaran — supaya pergantian guru/kepala sekolah antar tahun tidak saling mempengaruhi data anggaran.
+
+**Data yang IKUT terpisah per Tahun Anggaran:**
+- Master Barang (katalog kode barang diinput ulang tiap tahun)
+- Pegawai
+- Barang Masuk (BPU) + itemnya
+- Transaksi Keluar + itemnya
+- Koreksi Stok
+- Nomor urut surat (`nomor_urut_terakhir`) — reset ke 0 di tahun anggaran baru
+
+**Data yang TETAP di level Sekolah (tidak ikut terpisah):**
+- Identitas sekolah: nama, alamat, kode klasifikasi surat, jabatan resmi SPPB, logo, kontak
+- Akun user (login)
+
+**Alur:**
+- Dropdown "Tahun Anggaran: 2026 ▾" di pojok kanan dashboard — isinya tahun anggaran yang sudah dibuka oleh superadmin, sekolah tinggal pilih/pindah. **Tidak ada opsi bikin tahun anggaran baru di sisi sekolah.**
+- Pembukaan tahun anggaran baru dilakukan **superadmin dari Panel Admin** (§12.5), sekali aksi berlaku untuk **semua sekolah sekaligus** — konsisten dengan kalender anggaran pemerintah yang memang serentak, bukan keputusan per sekolah. Begitu dibuka, setiap sekolah otomatis dapat 1 baris tahun anggaran baru (mulai dari nol, `nomor_urut_terakhir` = 0).
+- Tahun anggaran baru = mulai dari nol (tidak ada carry-over saldo otomatis dari tahun sebelumnya — sekolah input manual kalau mau catat saldo awal, sesuai praktik opname BMN/BMD).
+- **Data tahun anggaran manapun tetap bisa diedit**, tapi HANYA saat tahun anggaran itu sedang aktif/dipilih (tidak bisa edit data 2026 sambil browsing di tahun anggaran 2027 — harus pindah dulu).
+- Migrasi data existing: dibuatkan 1 tahun anggaran default per sekolah yang sudah ada, semua data lama otomatis di-assign ke situ (tidak ada data yang hilang).
+
+### 12.4 Navigasi: Dropdown Profil & Tahun Anggaran
+
+- Pojok kanan atas dashboard: dropdown Tahun Anggaran, dan terpisah, dropdown Profil (isinya: link ke Pengaturan Sekolah, dan tombol Logout). Menggantikan link Profil/Logout yang sebelumnya ada di tempat lain.
+
+### 12.5 Panel Admin Platform (bukan per-sekolah)
+
+Menggunakan Filament panel yang sudah ada (role `admin`). Menu baru:
+- **Tahun Anggaran**: tombol "Buka Tahun Anggaran Baru" — sekali klik, bikin 1 baris tahun anggaran baru untuk **semua sekolah sekaligus** (bukan per-sekolah manual). Ini satu-satunya cara tahun anggaran baru terbentuk; sekolah tidak punya kewenangan bikin sendiri (§12.3).
+- **Pengaturan Aplikasi**: nama aplikasi, logo aplikasi (dipakai di landing page & dashboard, menggantikan branding hardcoded).
+- **Rekening Donasi**: CRUD banyak rekening (bank, nomor rekening, atas nama, foto bukti/QRIS).
+
+### 12.6 Dashboard v2 (interaktif, Chart.js)
+
+Chart yang ditampilkan (disepakati di diskusi):
+- Tren Barang Masuk vs Transaksi Keluar per bulan (line chart)
+- Top 5 barang paling sering keluar (bar chart)
+- Jumlah transaksi Draft vs Selesai (donut/pie atau angka besar)
+- Barang dengan sisa stok menipis (list/alert, bukan chart)
+- Section info donasi (nomor rekening dari §12.5, ditampilkan ke sekolah sebagai ajakan opsional)
+
+### 12.7 Transaksi Keluar: Hapus Sistem Tab
+
+- Sistem tab Draft/Selesai/Semua (Fase 14.4) **dihapus**, diganti satu daftar tunggal dengan badge status per baris (badge-nya sendiri sudah ada dari Fase 14.4, tinggal dicopot tab-nya).
+- Form Edit sudah mendukung status draft maupun selesai sejak Fase 14.4 — tidak ada perubahan logic, cuma UI-nya yang disederhanakan.
+- Fitur yang ada di Barang Masuk (sort, filter, pagination rapi) disamakan tampilannya ke Transaksi Keluar juga.
+- Rapikan juga halaman Upload Transaksi Keluar (step upload & review), konsisten sama upload Master Barang/Barang Masuk (§12.8).
+
+### 12.8 Master Barang, Barang Masuk & Pegawai: Rapikan Tampilan
+
+- Tambah sort (per kolom) dan filter (kategori/kata kunci) di halaman index Master Barang, Barang Masuk, dan Pegawai.
+- Ganti pagination Laravel default (ada style `dark:` bawaan yang bikin kelihatan gelap padahal tema app-nya terang) dengan view pagination custom yang konsisten sama desain app — berlaku di ketiganya.
+- Rapikan halaman Upload (step upload & review) Master Barang, Barang Masuk, dan Transaksi Keluar biar visualnya konsisten sama halaman lain.
+
+### 12.9 Pengaturan Sekolah: 2 Kolom di Desktop
+
+- Reflow form Pengaturan Sekolah jadi 2 kolom di layar desktop (tetap 1 kolom di mobile), dikelompokkan biar lebih rapi (identitas sekolah | kop surat & penomoran, misalnya).
+
+### 12.10 Landing Page v2
+
+- Didesain ulang dari nol (bukan revisi kecil), fokus: penjelasan produk, ajakan coba gratis, section donasi.
+
+---
+
+## 13. Urutan Eksekusi v1.1
+
+Dipecah jadi beberapa fase kecil di `TASKS.md`, urutan (fondasi dulu karena banyak fase bergantung ke Tahun Anggaran):
+
+- **Fase 15** — Tahun Anggaran (fondasi data)
+- **Fase 16** — NPSN unik + dropdown Profil/Tahun Anggaran
+- **Fase 17** — Rapikan Master Barang, Barang Masuk & Pegawai
+- **Fase 18** — Transaksi Keluar: hapus tab, samakan fitur ke Barang Masuk
+- **Fase 19** — Dashboard v2 (Chart.js) + info donasi
+- **Fase 20** — Panel Admin (buka tahun anggaran baru, nama app, logo app, rekening donasi)
+- **Fase 21** — Pengaturan Sekolah 2 kolom
+- **Fase 22** — Landing page v2
