@@ -249,10 +249,10 @@ Ditemukan pas testing Fase 11: modul Persediaan/Transaksi masih kurang lengkap b
 - [x] Halaman Pengaturan Sekolah: pindahkan field "Nomor Urut Terakhir" (Fase 14.6) supaya ngedit punya tahun anggaran aktif, bukan sekolah
 
 ### 16 — NPSN Unik + Navigasi Dropdown
-- [ ] Validasi unique `kode_sekolah` di form Lengkapi Profil & Pengaturan Sekolah
-- [ ] Migration: unique constraint di kolom `sekolah.kode_sekolah`
-- [ ] Dropdown Tahun Anggaran di pojok kanan dashboard (pilih dari tahun anggaran yang sudah dibuka superadmin — tidak ada opsi bikin baru di sisi sekolah)
-- [ ] Dropdown Profil di pojok kanan dashboard (link Pengaturan Sekolah + tombol Logout), hapus link lama di tempat sebelumnya
+- [x] Validasi unique `kode_sekolah` di form Lengkapi Profil & Pengaturan Sekolah
+- [x] Migration: unique constraint di kolom `sekolah.kode_sekolah`
+- [x] Dropdown Tahun Anggaran di pojok kanan dashboard (pilih dari tahun anggaran yang sudah dibuka superadmin — tidak ada opsi bikin baru di sisi sekolah)
+- [x] Dropdown Profil di pojok kanan dashboard (link Pengaturan Sekolah + tombol Logout), hapus link lama di tempat sebelumnya
 
 ### 17 — Rapikan Master Barang, Barang Masuk & Pegawai
 - [ ] Sort per kolom di index Master Barang, Barang Masuk, dan Pegawai

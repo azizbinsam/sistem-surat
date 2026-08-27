@@ -19,12 +19,14 @@ new #[Layout('layouts.app')] class extends Component
     {
         $validated = $this->validate([
             'nama_sekolah' => ['required', 'string', 'max:255'],
-            'kode_sekolah' => ['required', 'string', 'max:50'],
+            'kode_sekolah' => ['required', 'string', 'max:50', 'unique:sekolah,kode_sekolah'],
             'nama_pemerintah' => ['required', 'string', 'max:255'],
             'nama_dinas' => ['required', 'string', 'max:255'],
             'nama_korwil' => ['nullable', 'string', 'max:255'],
             'alamat' => ['required', 'string'],
             'tempat' => ['required', 'string', 'max:100'],
+        ], [
+            'kode_sekolah.unique' => 'Kode Sekolah ini sudah terdaftar dengan akun lain. Satu sekolah cuma boleh punya satu akun — kalau ini sekolahmu, hubungi admin buat bantuan akses.',
         ]);
 
         $sekolah = Sekolah::create($validated);

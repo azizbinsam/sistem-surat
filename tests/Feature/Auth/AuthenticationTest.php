@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Auth;
 
+use App\Models\Sekolah;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Volt\Volt;
@@ -69,11 +70,21 @@ class AuthenticationTest extends TestCase
 
     public function test_users_can_logout(): void
     {
-        $user = User::factory()->create();
+        $sekolah = Sekolah::create([
+            'nama_sekolah' => 'SDN Test',
+            'kode_sekolah' => 'SDNTEST',
+            'nama_pemerintah' => 'X',
+            'nama_dinas' => 'Y',
+            'alamat' => 'Z',
+            'tempat' => 'W',
+        ]);
+        $user = User::factory()->create(['sekolah_id' => $sekolah->id]);
 
         $this->actingAs($user);
 
-        $component = Volt::test('layout.navigation');
+        // logout() sekarang ada di komponen layout.topbar (dropdown Profil, Fase 16),
+        // bukan lagi di layout.navigation (sidebar).
+        $component = Volt::test('layout.topbar');
 
         $component->call('logout');
 

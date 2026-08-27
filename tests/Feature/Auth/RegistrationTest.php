@@ -29,7 +29,8 @@ class RegistrationTest extends TestCase
 
         $component->call('register');
 
-        $component->assertRedirect(route('dashboard', absolute: false));
+        // User baru belum punya sekolah_id -> diarahkan ke onboarding dulu (bukan langsung dashboard)
+        $component->assertRedirect(route('lengkapi-profil', absolute: false));
 
         $this->assertAuthenticated();
     }

@@ -6,6 +6,7 @@ use App\Services\TahunAnggaranResolver;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
 use Livewire\Attributes\Layout;
 use Livewire\Volt\Component;
 use Livewire\WithFileUploads;
@@ -56,22 +57,27 @@ new #[Layout('layouts.app')] class extends Component {
 
     public function simpanProfil(): void
     {
-        $validated = $this->validate([
-            'nama_sekolah' => ['required', 'string', 'max:255'],
-            'kode_sekolah' => ['required', 'string', 'max:50'],
-            'nama_pemerintah' => ['required', 'string', 'max:255'],
-            'nama_dinas' => ['required', 'string', 'max:255'],
-            'nama_korwil' => ['nullable', 'string', 'max:255'],
-            'alamat' => ['required', 'string'],
-            'tempat' => ['required', 'string', 'max:100'],
-            'kontak_wa' => ['nullable', 'string', 'max:30'],
-            'email' => ['nullable', 'email', 'max:255'],
-            'jabatan_resmi_sppb' => ['required', 'string', 'max:255'],
-            'kode_klasifikasi_surat' => ['required', 'string', 'max:50'],
-            'nomor_urut_terakhir' => ['required', 'integer', 'min:0'],
-            'logo_sekolah_baru' => ['nullable', 'image', 'max:2048'],
-            'logo_kabupaten_baru' => ['nullable', 'image', 'max:2048'],
-        ]);
+        $validated = $this->validate(
+            [
+                'nama_sekolah' => ['required', 'string', 'max:255'],
+                'kode_sekolah' => ['required', 'string', 'max:50', Rule::unique('sekolah', 'kode_sekolah')->ignore($this->sekolah->id)],
+                'nama_pemerintah' => ['required', 'string', 'max:255'],
+                'nama_dinas' => ['required', 'string', 'max:255'],
+                'nama_korwil' => ['nullable', 'string', 'max:255'],
+                'alamat' => ['required', 'string'],
+                'tempat' => ['required', 'string', 'max:100'],
+                'kontak_wa' => ['nullable', 'string', 'max:30'],
+                'email' => ['nullable', 'email', 'max:255'],
+                'jabatan_resmi_sppb' => ['required', 'string', 'max:255'],
+                'kode_klasifikasi_surat' => ['required', 'string', 'max:50'],
+                'nomor_urut_terakhir' => ['required', 'integer', 'min:0'],
+                'logo_sekolah_baru' => ['nullable', 'image', 'max:2048'],
+                'logo_kabupaten_baru' => ['nullable', 'image', 'max:2048'],
+            ],
+            [
+                'kode_sekolah.unique' => 'Kode Sekolah ini sudah dipakai akun lain. Satu sekolah cuma boleh punya satu akun.',
+            ],
+        );
 
         if ($this->logo_sekolah_baru) {
             if ($this->sekolah->logo_sekolah) {
