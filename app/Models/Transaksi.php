@@ -4,16 +4,18 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use App\Models\Concerns\BelongsToTahunAnggaran;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Transaksi extends Model
 {
-    use HasFactory;
+    use HasFactory, BelongsToTahunAnggaran;
 
     protected $table = 'transaksi';
 
     protected $fillable = [
         'sekolah_id',
+        'tahun_anggaran_id',
         'nomor_referensi_asal',
         'nomor_npb',
         'nomor_spb',

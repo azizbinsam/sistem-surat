@@ -239,14 +239,14 @@ Ditemukan pas testing Fase 11: modul Persediaan/Transaksi masih kurang lengkap b
 ## v1.1 — Perubahan Arah Produk (lihat PRD.md §12-13 untuk detail keputusan)
 
 ### 15 — Tahun Anggaran (fondasi, prioritas tertinggi di v1.1)
-- [ ] Migration: tabel `tahun_anggaran` (sekolah_id, tahun, nomor_urut_terakhir, is_aktif; unique sekolah_id+tahun)
-- [ ] Migration: tambah kolom `tahun_anggaran_id` ke master_barang, pegawai, barang_masuk, transaksi, koreksi_stok
-- [ ] Migration: hapus `nomor_urut_terakhir` dari `sekolah` (udah pindah ke tahun_anggaran)
-- [ ] Data seeding/backfill: bikinin 1 tahun anggaran default per sekolah existing, assign semua data lama ke situ (nomor_urut_terakhir lama ikut pindah nilainya)
-- [ ] `NomorSuratService`: pakai `tahun_anggaran.nomor_urut_terakhir` (bukan lagi `sekolah.nomor_urut_terakhir`)
-- [ ] Middleware/helper: resolve "tahun anggaran aktif" dari session, fallback ke tahun anggaran `is_aktif` terbaru
-- [ ] Scope semua query (master barang, pegawai, BPU, transaksi, koreksi stok) by tahun anggaran aktif
-- [ ] Halaman Pengaturan Sekolah: pindahkan field "Nomor Urut Terakhir" (Fase 14.6) supaya ngedit punya tahun anggaran aktif, bukan sekolah
+- [x] Migration: tabel `tahun_anggaran` (sekolah_id, tahun, nomor_urut_terakhir, is_aktif; unique sekolah_id+tahun)
+- [x] Migration: tambah kolom `tahun_anggaran_id` ke master_barang, pegawai, barang_masuk, transaksi, koreksi_stok
+- [x] Migration: hapus `nomor_urut_terakhir` dari `sekolah` (udah pindah ke tahun_anggaran)
+- [x] Data seeding/backfill: bikinin 1 tahun anggaran default per sekolah existing, assign semua data lama ke situ (nomor_urut_terakhir lama ikut pindah nilainya)
+- [x] `NomorSuratService`: pakai `tahun_anggaran.nomor_urut_terakhir` (bukan lagi `sekolah.nomor_urut_terakhir`)
+- [x] Middleware/helper: resolve "tahun anggaran aktif" dari session, fallback ke tahun anggaran `is_aktif` terbaru
+- [x] Scope semua query (master barang, pegawai, BPU, transaksi, koreksi stok) by tahun anggaran aktif
+- [x] Halaman Pengaturan Sekolah: pindahkan field "Nomor Urut Terakhir" (Fase 14.6) supaya ngedit punya tahun anggaran aktif, bukan sekolah
 
 ### 16 — NPSN Unik + Navigasi Dropdown
 - [ ] Validasi unique `kode_sekolah` di form Lengkapi Profil & Pengaturan Sekolah

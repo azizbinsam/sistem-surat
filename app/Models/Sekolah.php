@@ -29,8 +29,30 @@ class Sekolah extends Model
         'format_kode_npb',
         'format_kode_spb',
         'format_kode_sppb',
-        'nomor_urut_terakhir',
     ];
+
+    /**
+     * Setiap sekolah baru otomatis dapat 1 tahun anggaran default yang aktif (PRD §12.3).
+     * Ini juga yang bikin test lama (yang langsung Sekolah::create() tanpa lewat alur
+     * onboarding) tetap jalan tanpa perlu diubah satu-satu.
+     */
+    protected static function booted(): void
+    {
+        static::created(function (self $sekolah) {
+            if (!$sekolah->tahunAnggaran()->exists()) {
+                $sekolah->tahunAnggaran()->create([
+                    'tahun' => now()->year,
+                    'nomor_urut_terakhir' => 0,
+                    'is_aktif' => true,
+                ]);
+            }
+        });
+    }
+
+    public function tahunAnggaran(): HasMany
+    {
+        return $this->hasMany(TahunAnggaran::class);
+    }
 
     public function users(): HasMany
     {

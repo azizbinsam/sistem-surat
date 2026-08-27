@@ -4,16 +4,18 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use App\Models\Concerns\BelongsToTahunAnggaran;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class MasterBarang extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory, SoftDeletes, BelongsToTahunAnggaran;
 
     protected $table = 'master_barang';
 
     protected $fillable = [
         'sekolah_id',
+        'tahun_anggaran_id',
         'kode_barang',
         'nama_barang',
         'kategori',

@@ -4,16 +4,18 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use App\Models\Concerns\BelongsToTahunAnggaran;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class BarangMasuk extends Model
 {
-    use HasFactory;
+    use HasFactory, BelongsToTahunAnggaran;
 
     protected $table = 'barang_masuk';
 
     protected $fillable = [
         'sekolah_id',
+        'tahun_anggaran_id',
         'nomor_bpu',
         'tanggal',
     ];

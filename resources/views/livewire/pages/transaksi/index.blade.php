@@ -53,7 +53,7 @@ new #[Layout('layouts.app')] class extends Component {
         $this->errorMsg = null;
 
         $transaksi = Transaksi::where('sekolah_id', auth()->user()->sekolah_id)
-            ->with('sekolah')
+            ->with('sekolah', 'tahunAnggaran')
             ->findOrFail($transaksiId);
 
         if (!$transaksi->pihak_peminta_id) {
@@ -62,7 +62,7 @@ new #[Layout('layouts.app')] class extends Component {
         }
 
         if (!$transaksi->nomor_npb) {
-            $nomorNpb = $nomorService->generateNomorNpb($transaksi->sekolah, $transaksi->tanggal_npb);
+            $nomorNpb = $nomorService->generateNomorNpb($transaksi->sekolah, $transaksi->tahunAnggaran, $transaksi->tanggal_npb);
 
             $transaksi->update([
                 'nomor_npb' => $nomorNpb,
@@ -94,7 +94,7 @@ new #[Layout('layouts.app')] class extends Component {
 
         $transaksiList = Transaksi::where('sekolah_id', auth()->user()->sekolah_id)
             ->whereIn('id', $this->selected)
-            ->with('sekolah')
+            ->with('sekolah', 'tahunAnggaran')
             ->get();
 
         $belumMapping = $transaksiList->filter(fn($t) => !$t->pihak_peminta_id);
@@ -106,7 +106,7 @@ new #[Layout('layouts.app')] class extends Component {
         $paths = [];
         foreach ($transaksiList as $transaksi) {
             if (!$transaksi->nomor_npb) {
-                $nomorNpb = $nomorService->generateNomorNpb($transaksi->sekolah, $transaksi->tanggal_npb);
+                $nomorNpb = $nomorService->generateNomorNpb($transaksi->sekolah, $transaksi->tahunAnggaran, $transaksi->tanggal_npb);
                 $transaksi->update([
                     'nomor_npb' => $nomorNpb,
                     'nomor_spb' => $nomorService->turunanSpb($nomorNpb),

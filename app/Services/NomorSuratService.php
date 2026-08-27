@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Sekolah;
+use App\Models\TahunAnggaran;
 use Carbon\Carbon;
 
 class NomorSuratService
@@ -23,14 +24,15 @@ class NomorSuratService
     ];
 
     /**
-     * Generate nomor NPB baru (increment global, nomor urut TIDAK PERNAH dipakai ulang).
+     * Generate nomor NPB baru (increment per Tahun Anggaran sejak v1.1 — nomor urut
+     * reset tiap tahun anggaran baru, TIDAK PERNAH dipakai ulang dalam 1 tahun anggaran).
      */
-    public function generateNomorNpb(Sekolah $sekolah, Carbon $tanggal): string
+    public function generateNomorNpb(Sekolah $sekolah, TahunAnggaran $tahunAnggaran, Carbon $tanggal): string
     {
-        $sekolah->increment('nomor_urut_terakhir');
-        $sekolah->refresh();
+        $tahunAnggaran->increment('nomor_urut_terakhir');
+        $tahunAnggaran->refresh();
 
-        return $this->formatNpb($sekolah, $tanggal, (int) $sekolah->nomor_urut_terakhir);
+        return $this->formatNpb($sekolah, $tanggal, (int) $tahunAnggaran->nomor_urut_terakhir);
     }
 
     /**

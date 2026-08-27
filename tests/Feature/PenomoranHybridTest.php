@@ -4,11 +4,10 @@ namespace Tests\Feature;
 
 use App\Models\MasterBarang;
 use App\Models\Sekolah;
+use App\Models\TahunAnggaran;
 use App\Models\Transaksi;
 use App\Models\User;
 use App\Services\NomorSuratService;
-use App\Services\SuratWordGenerator;
-use App\Services\SuratPdfGenerator;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Volt\Volt;
 use Tests\TestCase;
@@ -18,6 +17,7 @@ class PenomoranHybridTest extends TestCase
     use RefreshDatabase;
 
     protected Sekolah $sekolah;
+    protected TahunAnggaran $tahunAnggaran;
     protected User $user;
 
     protected function setUp(): void
@@ -31,8 +31,13 @@ class PenomoranHybridTest extends TestCase
             'nama_dinas' => 'DISDIK',
             'alamat' => 'Jl. Contoh',
             'tempat' => 'Rangkasbitung',
-            'nomor_urut_terakhir' => 5,
         ]);
+
+        // Sekolah::booted() otomatis bikin 1 tahun anggaran default (is_aktif) — pakai itu,
+        // tinggal set nomor_urut_terakhir awalnya ke 5 buat skenario test.
+        $this->tahunAnggaran = $this->sekolah->tahunAnggaran()->first();
+        $this->tahunAnggaran->update(['nomor_urut_terakhir' => 5]);
+
         $this->user = User::factory()->create(['sekolah_id' => $this->sekolah->id]);
     }
 
@@ -44,7 +49,7 @@ class PenomoranHybridTest extends TestCase
             ->call('simpanProfil')
             ->assertHasNoErrors();
 
-        $this->assertSame(42, $this->sekolah->fresh()->nomor_urut_terakhir);
+        $this->assertSame(42, $this->tahunAnggaran->fresh()->nomor_urut_terakhir);
     }
 
     public function test_nomor_urut_terakhir_wajib_angka_dan_tidak_boleh_negatif(): void
@@ -56,7 +61,7 @@ class PenomoranHybridTest extends TestCase
             ->assertHasErrors(['nomor_urut_terakhir']);
 
         // nilai lama tidak berubah
-        $this->assertSame(5, $this->sekolah->fresh()->nomor_urut_terakhir);
+        $this->assertSame(5, $this->tahunAnggaran->fresh()->nomor_urut_terakhir);
     }
 
     public function test_edit_nomor_urut_terakhir_mempengaruhi_nomor_npb_berikutnya(): void
@@ -67,9 +72,30 @@ class PenomoranHybridTest extends TestCase
             ->call('simpanProfil');
 
         $nomorService = app(NomorSuratService::class);
-        $nomorBaru = $nomorService->generateNomorNpb($this->sekolah->fresh(), now());
+        $nomorBaru = $nomorService->generateNomorNpb($this->sekolah->fresh(), $this->tahunAnggaran->fresh(), now());
 
         $this->assertStringContainsString('/0100/', $nomorBaru);
+    }
+
+    /** Nomor urut milik Tahun Anggaran, jadi harus kejaga proteksi tenant-nya juga. */
+    public function test_tidak_bisa_ngedit_nomor_urut_tahun_anggaran_sekolah_lain(): void
+    {
+        $sekolahLain = Sekolah::create([
+            'nama_sekolah' => 'SDN Lain',
+            'kode_sekolah' => 'SDNLAIN',
+            'nama_pemerintah' => 'X',
+            'nama_dinas' => 'Y',
+            'alamat' => 'Z',
+            'tempat' => 'W',
+        ]);
+
+        Volt::actingAs($this->user)
+            ->test('pages.pengaturan.sekolah')
+            ->set('nomor_urut_terakhir', 999)
+            ->call('simpanProfil');
+
+        // Tahun anggaran sekolah LAIN tidak boleh ikut ke-update
+        $this->assertNotSame(999, $sekolahLain->tahunAnggaran()->first()->nomor_urut_terakhir);
     }
 
     public function test_generate_surat_skip_auto_nomor_kalau_nomor_npb_sudah_diisi_manual(): void
@@ -109,7 +135,7 @@ class PenomoranHybridTest extends TestCase
             'keperluan' => 'x',
         ]);
 
-        $sekolahSebelum = $this->sekolah->fresh()->nomor_urut_terakhir;
+        $counterSebelum = $this->tahunAnggaran->fresh()->nomor_urut_terakhir;
 
         // "Download ulang" — manggil generate() beneran lewat komponen index
         Volt::actingAs($this->user)
@@ -121,6 +147,6 @@ class PenomoranHybridTest extends TestCase
         // Nomor NPB/SPB/SPPB TETAP, dan counter TIDAK naik — generateNomorNpb() nggak dipanggil
         $this->assertSame('005/BOS/2019', $transaksi->nomor_npb);
         $this->assertSame('005/BOS/2019.1', $transaksi->nomor_spb);
-        $this->assertSame($sekolahSebelum, $this->sekolah->fresh()->nomor_urut_terakhir);
+        $this->assertSame($counterSebelum, $this->tahunAnggaran->fresh()->nomor_urut_terakhir);
     }
 }
