@@ -266,12 +266,12 @@ Ditemukan pas testing Fase 11: modul Persediaan/Transaksi masih kurang lengkap b
 - [x] Rapikan tampilan halaman Upload Transaksi Keluar (step upload & review)
 
 ### 19 — Dashboard v2
-- [ ] Install Chart.js (atau chart wrapper yang kompatibel Livewire/Volt)
-- [ ] Chart: tren Barang Masuk vs Transaksi Keluar per bulan
-- [ ] Chart: top 5 barang paling sering keluar
-- [ ] Info: jumlah transaksi Draft vs Selesai
-- [ ] Alert: barang dengan sisa stok menipis
-- [ ] Section info donasi (ambil dari `rekening_donasi`, Fase 20)
+- [x] Install Chart.js (atau chart wrapper yang kompatibel Livewire/Volt)
+- [x] Chart: tren Barang Masuk vs Transaksi Keluar per bulan
+- [x] Chart: top 5 barang paling sering keluar
+- [x] Info: jumlah transaksi Draft vs Selesai
+- [x] Alert: barang dengan sisa stok menipis
+- [x] Section info donasi (ambil dari `rekening_donasi`, Fase 20)
 
 ### 20 — Panel Admin: Tahun Anggaran, Pengaturan Aplikasi & Donasi
 - [ ] Filament resource/action: "Buka Tahun Anggaran Baru" — bikin 1 baris tahun_anggaran baru untuk SEMUA sekolah sekaligus (loop semua sekolah, insert tahun_anggaran baru dengan nomor_urut_terakhir=0, set is_aktif lama jadi false)

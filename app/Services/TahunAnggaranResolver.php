@@ -14,8 +14,18 @@ use App\Models\TahunAnggaran;
  */
 class TahunAnggaranResolver
 {
-    public function aktif(Sekolah $sekolah): ?TahunAnggaran
+    /**
+     * $sekolah nullable dengan sengaja — beberapa caller (dashboard, topbar) bisa aja
+     * kepanggil buat user yang belum lengkapi profil (belum punya sekolah_id) sebelum
+     * middleware sempat redirect. Daripada tiap caller guard manual sendiri-sendiri
+     * (rawan kelewat), null di-terima di sini dan langsung balikin null.
+     */
+    public function aktif(?Sekolah $sekolah): ?TahunAnggaran
     {
+        if (!$sekolah) {
+            return null;
+        }
+
         $sessionId = session('tahun_anggaran_id');
 
         if ($sessionId) {

@@ -34,31 +34,54 @@ new #[Layout('layouts.app')] class extends Component {
 }; ?>
 
 <div class="max-w-xl">
-    <h2 class="text-lg font-semibold text-zinc-900 mb-4">Import Pegawai</h2>
-
-    <div class="mb-4 p-4 bg-zinc-50 rounded-md text-sm text-zinc-700">
-        Format kolom wajib: <strong>Nama</strong>, <strong>Jabatan</strong>, <strong>NIP</strong> (opsional),
-        <strong>Kategori Pegawai</strong>
-        (isi salah satu: Kepala Sekolah / Pengurus Barang Pembantu / Guru / Tendik).
-        Tanda tangan tetap diupload manual per pegawai setelah import.
-        <a href="{{ route('pegawai.template') }}" class="block mt-2 text-zinc-900 underline">Download Template Excel</a>
+    <div class="mb-6"> <a href="{{ route('pegawai.index') }}" wire:navigate
+            class="text-sm text-zinc-500 hover:text-zinc-700 inline-flex items-center gap-1 mb-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+            </svg> Kembali </a>
+        <h1 class="text-2xl font-bold text-zinc-900"> Import Data Pegawai </h1>
+        <p class="text-sm text-zinc-500 mt-1"> Upload data pegawai sekaligus lewat file Excel. </p>
+    </div>
+    <div class="mb-4 flex items-start gap-3 p-4 bg-zinc-50 rounded-lg border border-zinc-100">
+        <svg class="w-5 h-5 mt-0.5 flex-shrink-0 text-zinc-500" fill="none" stroke="currentColor"
+            viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M13 16h-1v-4h-1m1-4h.01M12 21a9 9 0 100-18 9 9 0 000 18z" />
+        </svg>
+        <div class="text-sm text-zinc-600">
+            <p> Kolom wajib: <strong class="text-zinc-800">Nama</strong>, <strong
+                    class="text-zinc-800">Jabatan</strong>, dan <strong class="text-zinc-800">Kategori Pegawai</strong>.
+                <strong class="text-zinc-800">NIP</strong> bersifat opsional. Kategori diisi salah satu: <span
+                    class="text-zinc-800"> Kepala Sekolah, Pengurus Barang Pembantu, Guru, atau Tendik. </span>
+            </p>
+            <p class="mt-1.5"> Tanda tangan tetap diupload manual per pegawai setelah proses import. </p> <a
+                href="{{ route('pegawai.template') }}"
+                class="inline-flex items-center gap-1.5 mt-2 text-emerald-700 font-medium hover:text-emerald-800 hover:underline">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14" />
+                </svg> Download Template Excel </a>
+        </div>
     </div>
 
     @if ($errorMsg)
-        <div class="mb-4 p-3 bg-red-50 text-red-700 rounded-md text-sm">{{ $errorMsg }}</div>
+        <div class=class="mb-4 p-3 bg-red-50 text-red-700 rounded-lg text-sm border border-red-100">{{ $errorMsg }}
+        </div>
     @endif
 
-    <form wire:submit="import" class="space-y-4 bg-white p-6 rounded-md shadow">
+    <form wire:submit="import" class="space-y-4 bg-white p-6 rounded-xl border border-zinc-100 shadow-sm">
         <div>
             <x-input-label for="file" value="File Excel" />
-            <input type="file" wire:model="file" id="file" class="block mt-1 w-full text-sm">
+            <input type="file" wire:model="file" id="file"
+                class="block mt-1 w-full text-sm text-zinc-600 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-zinc-100 file:text-zinc-700 hover:file:bg-zinc-200">
             <x-input-error :messages="$errors->get('file')" class="mt-2" />
             <div wire:loading wire:target="file" class="text-xs text-zinc-500 mt-1">Mengunggah file...</div>
         </div>
 
         <div class="flex items-center gap-3">
             <x-primary-button>Import</x-primary-button>
-            <a href="{{ route('pegawai.index') }}" wire:navigate class="text-sm text-zinc-600 hover:underline">Batal</a>
+            <a href="{{ route('pegawai.index') }}" wire:navigate
+                class="text-sm text-zinc-500 hover:text-zinc-700">Batal</a>
         </div>
     </form>
 </div>

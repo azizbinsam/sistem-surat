@@ -32,53 +32,96 @@ new #[Layout('layouts.app')] class extends Component {
     }
 }; ?>
 
-<div class="max-w-xl">
-    <h2 class="text-lg font-semibold text-zinc-900 mb-4">Tambah Barang</h2>
+<div class="max-w-3xl">
 
-    <form wire:submit="simpan" class="space-y-4 bg-white p-6 rounded-md shadow">
-        <div>
-            <x-input-label for="kode_barang" value="Kode Barang" />
-            <x-text-input wire:model="kode_barang" id="kode_barang" class="block mt-1 w-full" type="text" />
-            <x-input-error :messages="$errors->get('kode_barang')" class="mt-2" />
+    <div class="mb-6">
+        <a href="{{ route('master-barang.index') }}" wire:navigate
+            class="text-sm text-zinc-500 hover:text-zinc-700 inline-flex items-center gap-1 mb-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+            </svg>
+            Kembali
+        </a>
+        <h1 class="text-2xl font-bold text-zinc-900">Tambah Barang</h1>
+        <p class="text-sm text-zinc-500 mt-1">
+            Tambahkan data barang baru ke dalam master barang.
+        </p>
+    </div>
+
+    <form wire:submit="simpan" class="bg-white p-6 rounded-xl border border-zinc-100 shadow-sm">
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+            {{-- Kode Barang --}}
+            <div>
+                <x-input-label for="kode_barang" value="Kode Barang" />
+
+                <x-text-input wire:model="kode_barang" id="kode_barang" class="block mt-1 w-full" type="text" />
+
+                <x-input-error :messages="$errors->get('kode_barang')" class="mt-2" />
+            </div>
+
+            {{-- Nama Barang --}}
+            <div>
+                <x-input-label for="nama_barang" value="Nama Barang" />
+
+                <x-text-input wire:model="nama_barang" id="nama_barang" class="block mt-1 w-full" type="text" />
+
+                <x-input-error :messages="$errors->get('nama_barang')" class="mt-2" />
+            </div>
+
+            {{-- Satuan --}}
+            <div>
+                <x-input-label for="satuan_default" value="Satuan" />
+
+                <x-text-input wire:model="satuan_default" id="satuan_default" class="block mt-1 w-full" type="text"
+                    placeholder="Buah, Botol, Rim, dst" />
+
+                <x-input-error :messages="$errors->get('satuan_default')" class="mt-2" />
+            </div>
+
+            {{-- Kategori --}}
+            <div>
+                <x-input-label for="kategori" value="Kategori (opsional)" />
+
+                <x-text-input wire:model="kategori" id="kategori" class="block mt-1 w-full" type="text" />
+
+                <x-input-error :messages="$errors->get('kategori')" class="mt-2" />
+            </div>
+
+            {{-- Spesifikasi --}}
+            <div>
+                <x-input-label for="spesifikasi_default" value="Spesifikasi Default (opsional)" />
+
+                <x-text-input wire:model="spesifikasi_default" id="spesifikasi_default" class="block mt-1 w-full"
+                    type="text" placeholder="Contoh: A4 70gsm" />
+
+                <x-input-error :messages="$errors->get('spesifikasi_default')" class="mt-2" />
+            </div>
+
+            {{-- Keperluan --}}
+            <div>
+                <x-input-label for="keperluan_default" value="Keperluan Default (opsional)" />
+
+                <x-text-input wire:model="keperluan_default" id="keperluan_default" class="block mt-1 w-full"
+                    type="text" placeholder="Contoh: Administrasi" />
+
+                <x-input-error :messages="$errors->get('keperluan_default')" class="mt-2" />
+            </div>
+
         </div>
 
-        <div>
-            <x-input-label for="nama_barang" value="Nama Barang" />
-            <x-text-input wire:model="nama_barang" id="nama_barang" class="block mt-1 w-full" type="text" />
-            <x-input-error :messages="$errors->get('nama_barang')" class="mt-2" />
-        </div>
+        {{-- Actions --}}
+        <div class="flex items-center gap-3 mt-6 pt-5 border-t border-zinc-100">
+            <x-primary-button>
+                Simpan
+            </x-primary-button>
 
-        <div>
-            <x-input-label for="spesifikasi_default" value="Spesifikasi Default (opsional)" />
-            <x-text-input wire:model="spesifikasi_default" id="spesifikasi_default" class="block mt-1 w-full"
-                type="text" placeholder="Auto-suggest/fallback saat isi transaksi keluar" />
-            <x-input-error :messages="$errors->get('spesifikasi_default')" class="mt-2" />
-        </div>
-
-        <div>
-            <x-input-label for="kategori" value="Kategori (opsional)" />
-            <x-text-input wire:model="kategori" id="kategori" class="block mt-1 w-full" type="text" />
-            <x-input-error :messages="$errors->get('kategori')" class="mt-2" />
-        </div>
-
-        <div>
-            <x-input-label for="satuan_default" value="Satuan" />
-            <x-text-input wire:model="satuan_default" id="satuan_default" class="block mt-1 w-full" type="text"
-                placeholder="Buah, Botol, Rim, dst" />
-            <x-input-error :messages="$errors->get('satuan_default')" class="mt-2" />
-        </div>
-
-        <div>
-            <x-input-label for="keperluan_default" value="Keperluan Default (opsional)" />
-            <x-text-input wire:model="keperluan_default" id="keperluan_default" class="block mt-1 w-full" type="text"
-                placeholder="Auto-suggest saat isi excel transaksi nanti" />
-            <x-input-error :messages="$errors->get('keperluan_default')" class="mt-2" />
-        </div>
-
-        <div class="flex items-center gap-3">
-            <x-primary-button>Simpan</x-primary-button>
             <a href="{{ route('master-barang.index') }}" wire:navigate
-                class="text-sm text-zinc-600 hover:underline">Batal</a>
+                class="text-sm text-zinc-600 hover:text-zinc-900 hover:underline">
+                Batal
+            </a>
         </div>
+
     </form>
 </div>

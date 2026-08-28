@@ -156,7 +156,7 @@ new #[Layout('layouts.app')] class extends Component {
             </svg>
             Kembali
         </a>
-        <h1 class="text-2xl font-bold text-zinc-900">Edit Penerimaan Barang (BPU)</h1>
+        <h1 class="text-2xl font-bold text-zinc-900">Edit Penerimaan Barang</h1>
     </div>
 
     @if ($showWarning)

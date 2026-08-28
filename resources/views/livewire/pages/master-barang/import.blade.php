@@ -42,16 +42,45 @@ new #[Layout('layouts.app')] class extends Component {
             </svg>
             Kembali
         </a>
-        <h1 class="text-2xl font-bold text-zinc-900">Import Master Barang</h1>
-        <p class="text-sm text-zinc-500 mt-1">Upload daftar barang sekaligus lewat file Excel.</p>
+
+        <h1 class="text-2xl font-bold text-zinc-900">
+            Import Master Barang
+        </h1>
+
+        <p class="text-sm text-zinc-500 mt-1">
+            Upload daftar barang sekaligus lewat file Excel.
+        </p>
     </div>
 
-    <div class="mb-4 p-4 bg-zinc-50 rounded-lg text-sm text-zinc-700 border border-zinc-100">
-        Format kolom wajib: <strong>Kode Barang</strong>, <strong>Nama Barang</strong>, <strong>Satuan Default</strong>
-        (Kategori & Spesifikasi Default opsional).
-        <a href="{{ route('master-barang.template') }}" class="block mt-2 text-emerald-700 font-medium hover:underline">
-            ⬇ Download Template Excel
-        </a>
+    <div class="mb-4 flex items-start gap-3 p-4 bg-zinc-50 rounded-lg border border-zinc-100">
+
+        <svg class="w-5 h-5 mt-0.5 flex-shrink-0 text-zinc-500" fill="none" stroke="currentColor"
+            viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M13 16h-1v-4h-1m1-4h.01M12 21a9 9 0 100-18 9 9 0 000 18z" />
+        </svg>
+
+        <div class="text-sm text-zinc-600">
+            <p>
+                Kolom wajib:
+                <strong class="text-zinc-800">Kode Barang</strong>,
+                <strong class="text-zinc-800">Nama Barang</strong>, dan
+                <strong class="text-zinc-800">Satuan Default</strong>.
+                Kategori dan Spesifikasi Default bersifat opsional.
+            </p>
+
+            <a href="{{ route('master-barang.template') }}"
+                class="inline-flex items-center gap-1.5 mt-2 text-emerald-700 font-medium hover:text-emerald-800 hover:underline">
+
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14" />
+                </svg>
+
+                Download Template Excel
+            </a>
+        </div>
+
     </div>
 
     @if ($errorMsg)

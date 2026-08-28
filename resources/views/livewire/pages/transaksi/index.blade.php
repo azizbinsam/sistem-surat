@@ -167,11 +167,7 @@ new #[Layout('layouts.app')] class extends Component {
     {
         $sekolahId = auth()->user()->sekolah_id;
 
-        $query = Transaksi::where('sekolah_id', $sekolahId)
-            ->when($this->search, fn($q) => $q->where('nomor_referensi_asal', 'like', "%{$this->search}%")->orWhere('nomor_npb', 'like', "%{$this->search}%"))
-            ->when($this->filterStatus, fn($q) => $q->where('status', $this->filterStatus))
-            ->withCount('items')
-            ->with('items.masterBarang', 'pihakPeminta');
+        $query = Transaksi::where('sekolah_id', $sekolahId)->when($this->search, fn($q) => $q->where('nomor_referensi_asal', 'like', "%{$this->search}%")->orWhere('nomor_npb', 'like', "%{$this->search}%"))->when($this->filterStatus, fn($q) => $q->where('status', $this->filterStatus))->withCount('items')->with('items.masterBarang', 'pihakPeminta');
 
         $daftarTransaksi = $query->orderBy($this->sortBy, $this->sortDir)->paginate(10);
 
@@ -220,12 +216,13 @@ new #[Layout('layouts.app')] class extends Component {
 
     <div class="mb-4 flex flex-col sm:flex-row gap-3">
         <div class="relative max-w-sm flex-1">
-            <svg class="w-4 h-4 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor"
-                viewBox="0 0 24 24">
+            <svg class="w-4 h-4 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2" fill="none"
+                stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                     d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
-            <input wire:model.live.debounce.300ms="search" type="text" placeholder="Cari no. referensi/nomor surat..."
+            <input wire:model.live.debounce.300ms="search" type="text"
+                placeholder="Cari no. referensi/nomor surat..."
                 class="w-full pl-10 pr-4 py-2.5 border-zinc-200 rounded-lg shadow-sm text-sm focus:border-emerald-500 focus:ring-emerald-500">
         </div>
         <select wire:model.live="filterStatus"
@@ -255,17 +252,19 @@ new #[Layout('layouts.app')] class extends Component {
             <thead class="bg-zinc-50">
                 <tr>
                     <th class="px-4 py-3">
-                        <input type="checkbox"
+                        <input type="checkbox" class="rounded"
                             wire:click="$set('selected', $event.target.checked ? {{ $daftarTransaksi->pluck('id') }} : [])">
                     </th>
-                    <x-th-sortable column="nomor_referensi_asal" :sortBy="$sortBy" :sortDir="$sortDir">No. Referensi</x-th-sortable>
+                    <x-th-sortable column="nomor_referensi_asal" :sortBy="$sortBy" :sortDir="$sortDir">No.
+                        Referensi</x-th-sortable>
                     <x-th-sortable column="nomor_npb" :sortBy="$sortBy" :sortDir="$sortDir">Nomor Surat</x-th-sortable>
                     <x-th-sortable column="tanggal_npb" :sortBy="$sortBy" :sortDir="$sortDir">Tanggal</x-th-sortable>
                     <th class="px-4 py-3 text-left text-xs font-semibold text-zinc-500 uppercase tracking-wider">Rincian
                         Barang</th>
                     <th class="px-4 py-3 text-left text-xs font-semibold text-zinc-500 uppercase tracking-wider">Pihak
                         Meminta</th>
-                    <th class="px-4 py-3 text-left text-xs font-semibold text-zinc-500 uppercase tracking-wider">Status</th>
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-zinc-500 uppercase tracking-wider">Status
+                    </th>
                     <th class="px-4 py-3 text-right text-xs font-semibold text-zinc-500 uppercase tracking-wider">Aksi
                     </th>
                 </tr>
@@ -273,7 +272,9 @@ new #[Layout('layouts.app')] class extends Component {
             <tbody class="divide-y divide-zinc-100">
                 @forelse ($daftarTransaksi as $t)
                     <tr wire:key="transaksi-{{ $t->id }}" class="hover:bg-zinc-50">
-                        <td class="px-4 py-3"><input type="checkbox" wire:model="selected" value="{{ $t->id }}"></td>
+                        <td class="px-4 py-3 text-center"><input type="checkbox" class="rounded" wire:model="selected"
+                                value="{{ $t->id }}">
+                        </td>
                         <td class="px-4 py-3 text-sm font-medium text-zinc-900">{{ $t->nomor_referensi_asal }}</td>
                         <td class="px-4 py-3 text-sm text-zinc-500">{{ $t->nomor_npb ?? '-' }}</td>
                         <td class="px-4 py-3 text-sm text-zinc-500">{{ $t->tanggal_npb->format('d-m-Y') }}</td>
@@ -302,7 +303,8 @@ new #[Layout('layouts.app')] class extends Component {
                             @endif
                         </td>
                         <td class="px-4 py-3 text-sm">
-                            <span class="px-2 py-0.5 rounded-full text-xs font-medium
+                            <span
+                                class="px-2 py-0.5 rounded-full text-xs font-medium
                                 {{ $t->status === 'selesai' ? 'bg-emerald-100 text-emerald-700' : 'bg-zinc-100 text-zinc-600' }}">
                                 {{ ucfirst($t->status) }}
                             </span>

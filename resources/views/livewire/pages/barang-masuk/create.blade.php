@@ -103,7 +103,10 @@ new #[Layout('layouts.app')] class extends Component {
             </svg>
             Kembali
         </a>
-        <h1 class="text-2xl font-bold text-zinc-900">Tambah Penerimaan Barang (BPU)</h1>
+        <h1 class="text-2xl font-bold text-zinc-900">Tambah Penerimaan Barang</h1>
+        <p class="text-sm text-zinc-500 mt-1">
+            Tambahkan penerimaan barang sesuai dengan BPU.
+        </p>
     </div>
 
     <form wire:submit="simpan" class="space-y-6">

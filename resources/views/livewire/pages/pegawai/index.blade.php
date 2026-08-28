@@ -71,8 +71,11 @@ new #[Layout('layouts.app')] class extends Component {
 }; ?>
 
 <div>
-    <div class="flex justify-between items-center mb-4">
-        <h2 class="text-lg font-semibold text-zinc-900">Data Pegawai</h2>
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+        <div>
+            <h1 class="text-2xl font-bold text-zinc-900">Data Pegawai</h1>
+            <p class="text-sm text-zinc-500 mt-1">Kelola data pegawai sekolah.</p>
+        </div>
         <div class="flex gap-2">
             <a href="{{ route('pegawai.import') }}" wire:navigate>
                 <x-secondary-button>Import Excel</x-secondary-button>
@@ -84,14 +87,22 @@ new #[Layout('layouts.app')] class extends Component {
     </div>
 
     @if (session('success'))
-        <div class="mb-4 p-3 bg-zinc-100 text-zinc-800 rounded-md text-sm">{{ session('success') }}</div>
+        <div class="mb-4 p-3 bg-emerald-50 text-emerald-700 rounded-lg text-sm border border-emerald-100">
+            {{ session('success') }}</div>
     @endif
 
     <div class="mb-4 flex flex-col sm:flex-row gap-3">
-        <input wire:model.live.debounce.300ms="search" type="text" placeholder="Cari nama pegawai..."
-            class="flex-1 border-gray-300 rounded-md shadow-sm focus:border-zinc-500 focus:ring-zinc-500">
+        <div class="relative max-w-sm flex-1">
+            <svg class="w-4 h-4 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2" fill="none"
+                stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input wire:model.live.debounce.300ms="search" type="text" placeholder="Cari nama pegawai..."
+                class="w-full pl-10 pr-4 py-2.5 border-zinc-200 rounded-lg shadow-sm text-sm focus:border-emerald-500 focus:ring-emerald-500">
+        </div>
         <select wire:model.live="filterKategori"
-            class="w-full sm:w-56 border-gray-300 rounded-md shadow-sm focus:border-zinc-500 focus:ring-zinc-500">
+            class="w-full sm:w-56 py-2.5 border-zinc-200 rounded-lg shadow-sm text-sm focus:border-emerald-500 focus:ring-emerald-500">
             <option value="">Semua Kategori</option>
             @foreach ($labelKategori as $value => $label)
                 <option value="{{ $value }}">{{ $label }}</option>
@@ -99,30 +110,37 @@ new #[Layout('layouts.app')] class extends Component {
         </select>
     </div>
 
-    <div class="bg-white rounded-md shadow overflow-x-auto">
-        <table class="min-w-full divide-y divide-gray-200">
+    <div class="bg-white rounded-xl border border-zinc-100 shadow-sm overflow-hidden">
+        <table class="min-w-full divide-y divide-zinc-100">
             <thead class="bg-zinc-50">
                 <tr>
                     <x-th-sortable column="nama" :sortBy="$sortBy" :sortDir="$sortDir">Nama</x-th-sortable>
-                    <th class="px-4 py-2 text-left text-xs font-medium text-zinc-600 uppercase">NIP</th>
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-zinc-500 uppercase tracking-wider">NIP
+                    </th>
                     <x-th-sortable column="jabatan" :sortBy="$sortBy" :sortDir="$sortDir">Jabatan</x-th-sortable>
                     <x-th-sortable column="kategori" :sortBy="$sortBy" :sortDir="$sortDir">Kategori</x-th-sortable>
-                    <th class="px-4 py-2 text-left text-xs font-medium text-zinc-600 uppercase">TTD</th>
-                    <th class="px-4 py-2 text-right text-xs font-medium text-zinc-600 uppercase">Aksi</th>
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-zinc-500 uppercase tracking-wider">TTD
+                    </th>
+                    <th class="px-4 py-3 text-right text-xs font-semibold text-zinc-500 uppercase tracking-wider">Aksi
+                    </th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-200">
                 @forelse ($daftarPegawai as $pegawai)
                     <tr wire:key="pegawai-{{ $pegawai->id }}">
-                        <td class="px-4 py-2 text-sm">{{ $pegawai->nama }}</td>
-                        <td class="px-4 py-2 text-sm">{{ $pegawai->nip ?? '-' }}</td>
-                        <td class="px-4 py-2 text-sm">{{ $pegawai->jabatan }}</td>
-                        <td class="px-4 py-2 text-sm">{{ $labelKategori[$pegawai->kategori] }}</td>
-                        <td class="px-4 py-2 text-sm">
+                        <td class="px-4 py-3 text-sm font-medium text-zinc-900">{{ $pegawai->nama }}</td>
+                        <td class="px-4 py-3 text-sm font-medium text-zinc-900">{{ $pegawai->nip ?? '-' }}</td>
+                        <td class="px-4 py-3 text-sm font-medium text-zinc-900">{{ $pegawai->jabatan }}</td>
+                        <td class="px-4 py-3 text-sm font-medium text-zinc-900">{{ $labelKategori[$pegawai->kategori] }}
+                        </td>
+                        <td class="px-4 py-3 text-sm">
                             @if ($pegawai->ttd_path)
-                                <span class="text-zinc-700">✓ Sudah</span>
+                                <span
+                                    class="px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700">Ada</span>
                             @else
-                                <span class="text-red-500">Belum ada</span>
+                                <span
+                                    class="px-2 py-0.5 rounded-full text-xs font-medium bg-zinc-100 text-zinc-600">Belum
+                                    ada</span>
                             @endif
                         </td>
                         <td class="px-4 py-2 text-sm text-right space-x-2">

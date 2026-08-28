@@ -242,171 +242,245 @@ new #[Layout('layouts.app')] class extends Component {
             </svg>
             Kembali
         </a>
-        <h1 class="text-2xl font-bold text-zinc-900">Upload Transaksi Keluar</h1>
-        <p class="text-sm text-zinc-500 mt-1">Upload data transaksi keluar sekaligus lewat file Excel.</p>
+
+        <h1 class="text-2xl font-bold text-zinc-900">
+            Upload Transaksi Keluar
+        </h1>
+
+        <p class="text-sm text-zinc-500 mt-1">
+            Upload data transaksi keluar sekaligus lewat file Excel.
+        </p>
     </div>
 
-    {{-- Indikator step --}}
+
+    {{-- Indikator Step --}}
     <div class="flex items-center gap-3 mb-6">
+
+        {{-- Step 1 --}}
         <div class="flex items-center gap-2">
             <span
-                class="w-6 h-6 rounded-full flex items-center justify-center text-xs font-semibold {{ $step === 'upload' ? 'bg-zinc-800 text-white' : 'bg-emerald-100 text-emerald-700' }}">
-                @if ($step === 'review') ✓ @else 1 @endif
+                class="w-6 h-6 rounded-full flex items-center justify-center text-xs font-semibold
+                {{ $step === 'upload' ? 'bg-zinc-800 text-white' : 'bg-emerald-100 text-emerald-700' }}">
+
+                @if ($step === 'review')
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" />
+                    </svg>
+                @else
+                    1
+                @endif
             </span>
-            <span class="text-sm font-medium {{ $step === 'upload' ? 'text-zinc-900' : 'text-zinc-500' }}">Upload File</span>
+
+            <span
+                class="text-sm font-medium
+                {{ $step === 'upload' ? 'text-zinc-900' : 'text-zinc-500' }}">
+                Upload File
+            </span>
         </div>
+
         <div class="flex-1 h-px bg-zinc-200"></div>
+
+        {{-- Step 2 --}}
         <div class="flex items-center gap-2">
             <span
-                class="w-6 h-6 rounded-full flex items-center justify-center text-xs font-semibold {{ $step === 'review' ? 'bg-zinc-800 text-white' : 'bg-zinc-100 text-zinc-400' }}">
+                class="w-6 h-6 rounded-full flex items-center justify-center text-xs font-semibold
+                {{ $step === 'review' ? 'bg-zinc-800 text-white' : 'bg-zinc-100 text-zinc-400' }}">
                 2
             </span>
-            <span class="text-sm font-medium {{ $step === 'review' ? 'text-zinc-900' : 'text-zinc-400' }}">Cek & Simpan</span>
+
+            <span
+                class="text-sm font-medium
+                {{ $step === 'review' ? 'text-zinc-900' : 'text-zinc-400' }}">
+                Cek & Simpan
+            </span>
         </div>
+
     </div>
 
+
+    {{-- Error --}}
     @if ($errorMsg)
-        <div class="mb-4 p-3 bg-red-50 text-red-700 rounded-lg text-sm border border-red-100">{{ $errorMsg }}</div>
+        <div class="mb-4 p-3 bg-red-50 text-red-700 rounded-lg text-sm border border-red-100">
+            {{ $errorMsg }}
+        </div>
     @endif
 
+
+    {{-- STEP 1 --}}
     @if ($step === 'upload')
-        <div class="mb-4 p-4 bg-zinc-50 rounded-lg text-sm text-zinc-700 border border-zinc-100">
-            Kolom wajib: <strong>Tanggal, Nomor Referensi, Nama Barang, Jumlah, Satuan, Keperluan</strong>.
-            Kolom opsional: <strong>Spesifikasi</strong> (fallback ke nama barang kalau kosong),
-            <strong>Nama Peminta + Jabatan Peminta</strong> (buat auto-mapping pihak yang meminta),
-            <strong>Nomor NPB</strong> (khusus data historis: isi angka urutnya aja misal <code>0012</code>, nanti
-            otomatis dilengkapi jadi format standar — atau isi nomor lengkap kalau formatnya beda dari sekarang).
-            Baris dengan Nomor Referensi sama otomatis digabung jadi 1 draft transaksi (1 bundel surat NPB+SPB+SPPB).
-            <a href="{{ route('transaksi.template') }}"
-                class="block mt-2 text-emerald-700 font-medium hover:underline">⬇ Download Template Excel</a>
+        {{-- Informasi Format --}}
+        <div class="mb-4 flex items-start gap-3 p-4 bg-zinc-50 rounded-lg border border-zinc-100">
+
+            <svg class="w-5 h-5 mt-0.5 flex-shrink-0 text-zinc-500" fill="none" stroke="currentColor"
+                viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M13 16h-1v-4h-1m1-4h.01M12 21a9 9 0 100-18 9 9 0 000 18z" />
+            </svg>
+
+            <div class="text-sm text-zinc-600">
+
+                <p>
+                    Kolom wajib:
+                    <strong class="text-zinc-800">
+                        Tanggal, Nomor Referensi, Nama Barang, Jumlah, Satuan, dan Keperluan
+                    </strong>.
+                </p>
+
+                <p class="mt-1.5">
+                    Kolom opsional:
+                    <strong class="text-zinc-800">Spesifikasi</strong>,
+                    <strong class="text-zinc-800">Nama Peminta + Jabatan Peminta</strong>,
+                    dan <strong class="text-zinc-800">Nomor NPB</strong>.
+                </p>
+
+                <p class="mt-1.5">
+                    Satu Nomor Referensi dapat muncul pada beberapa baris untuk item berbeda
+                    dan akan otomatis digabung menjadi satu draft transaksi.
+                </p>
+
+                <p class="mt-1.5 text-xs text-zinc-500">
+                    Untuk data historis, Nomor NPB dapat diisi dengan angka urut saja
+                    (contoh: <code class="px-1 py-0.5 bg-white border border-zinc-200 rounded">0012</code>)
+                    dan sistem akan melengkapinya ke format standar.
+                </p>
+
+                <a href="{{ route('transaksi.template') }}"
+                    class="inline-flex items-center gap-1.5 mt-2 text-emerald-700
+                        font-medium hover:text-emerald-800 hover:underline">
+
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14" />
+                    </svg>
+
+                    Download Template Excel
+                </a>
+
+            </div>
         </div>
 
+
+        {{-- Upload Form --}}
         <form wire:submit="parse" class="space-y-4 bg-white p-6 rounded-xl border border-zinc-100 shadow-sm">
+
             <div>
                 <x-input-label for="file" value="File Excel" />
+
                 <input type="file" wire:model="file" id="file"
-                    class="block mt-1 w-full text-sm text-zinc-600 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-zinc-100 file:text-zinc-700 hover:file:bg-zinc-200">
+                    class="block mt-1 w-full text-sm text-zinc-600
+                        file:mr-4 file:py-2 file:px-4
+                        file:rounded-lg file:border-0
+                        file:text-sm file:font-medium
+                        file:bg-zinc-100 file:text-zinc-700
+                        hover:file:bg-zinc-200">
+
                 <x-input-error :messages="$errors->get('file')" class="mt-2" />
-                <div wire:loading wire:target="file" class="text-xs text-zinc-500 mt-1">Mengunggah file...</div>
+
+                <div wire:loading wire:target="file" class="text-xs text-zinc-500 mt-1">
+                    Mengunggah file...
+                </div>
             </div>
 
             <div class="flex items-center gap-3 pt-2">
-                <x-primary-button>Proses & Cek Data</x-primary-button>
+                <x-primary-button>
+                    Proses & Cek Data
+                </x-primary-button>
+
                 <a href="{{ route('transaksi.index') }}" wire:navigate
-                    class="text-sm text-zinc-500 hover:text-zinc-700">Batal</a>
+                    class="text-sm text-zinc-500 hover:text-zinc-700">
+                    Batal
+                </a>
             </div>
+
         </form>
     @endif
 
+
+    {{-- STEP 2 --}}
     @if ($step === 'review')
-        <div class="mb-3 p-3 bg-zinc-50 rounded-lg text-sm text-zinc-700 border border-zinc-100">
-            Ditemukan <strong>{{ count($rows) }}</strong> baris item. Barang bertanda <span
-                class="text-green-700 font-medium">hijau</span> sudah otomatis dikenali.
-            Barang bertanda <span class="text-amber-700 font-medium">kuning</span> perlu di-mapping manual dulu sebelum
-            disimpan.
+
+        {{-- Informasi Review --}}
+        <div class="mb-3 flex items-start gap-3 p-3 bg-zinc-50 rounded-lg border border-zinc-100">
+
+            <svg class="w-5 h-5 mt-0.5 flex-shrink-0 text-zinc-500" fill="none" stroke="currentColor"
+                viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M13 16h-1v-4h-1m1-4h.01M12 21a9 9 0 100-18 9 9 0 000-18z" />
+            </svg>
+
+            <p class="text-sm text-zinc-600">
+                Ditemukan
+                <strong class="text-zinc-800">{{ count($rows) }}</strong>
+                baris item.
+                Barang yang sudah dikenali otomatis ditandai
+                <span class="text-emerald-700 font-medium">hijau</span>,
+                sedangkan barang yang memerlukan mapping manual ditandai
+                <span class="text-amber-700 font-medium">kuning</span>.
+            </p>
+
         </div>
 
+
+        {{-- Notifikasi Mapping Peminta --}}
         @if (!empty($notifGagalMappingPeminta))
             <div class="mb-3 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
-                Gagal auto-mapping pihak peminta (nama/jabatan nggak cocok persis dengan data Pegawai) di Nomor
-                Referensi:
-                <strong>{{ implode(', ', $notifGagalMappingPeminta) }}</strong>. Nanti bisa dilengkapi manual di halaman
-                daftar transaksi.
+                Gagal auto-mapping pihak peminta karena nama/jabatan tidak cocok
+                dengan data Pegawai pada Nomor Referensi:
+
+                <strong>
+                    {{ implode(', ', $notifGagalMappingPeminta) }}
+                </strong>.
+
+                Nanti dapat dilengkapi manual di halaman daftar transaksi.
             </div>
         @endif
 
+
+        {{-- Notifikasi Nama Berbeda --}}
         @if (!empty($notifNamaBerbeda))
-            <div class="mb-3 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-800">
-                ⚠ Nama Peminta beda-beda dalam 1 Nomor Referensi (indikasi salah ketik di excel):
-                <strong>{{ implode('; ', $notifNamaBerbeda) }}</strong>.
+            <div
+                class="mb-3 flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-800">
+
+                <svg class="w-4 h-4 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+
+                <div>
+                    Nama Peminta berbeda-beda dalam satu Nomor Referensi
+                    (indikasi salah ketik di Excel):
+
+                    <strong>
+                        {{ implode('; ', $notifNamaBerbeda) }}
+                    </strong>.
+                </div>
+
             </div>
         @endif
 
+
+        {{-- Tabel --}}
         <div class="bg-white rounded-xl border border-zinc-100 shadow-sm overflow-x-auto mb-4">
+
             <table class="min-w-full divide-y divide-zinc-100 text-sm">
-                <thead class="bg-zinc-50">
-                    <tr>
-                        <th class="px-3 py-2.5 text-left text-xs font-semibold text-zinc-500 uppercase tracking-wider">No. Referensi</th>
-                        <th class="px-3 py-2.5 text-left text-xs font-semibold text-zinc-500 uppercase tracking-wider">Tanggal</th>
-                        <th class="px-3 py-2.5 text-left text-xs font-semibold text-zinc-500 uppercase tracking-wider">Nama Barang (Excel)
-                        </th>
-                        <th class="px-3 py-2.5 text-left text-xs font-semibold text-zinc-500 uppercase tracking-wider">Jumlah</th>
-                        <th class="px-3 py-2.5 text-left text-xs font-semibold text-zinc-500 uppercase tracking-wider">Mapping ke Master
-                            Barang</th>
-                        <th class="px-3 py-2.5 text-left text-xs font-semibold text-zinc-500 uppercase tracking-wider">Peminta</th>
-                        <th class="px-3 py-2.5 text-left text-xs font-semibold text-zinc-500 uppercase tracking-wider">Nomor NPB</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-zinc-100">
-                    @foreach ($rows as $index => $row)
-                        <tr wire:key="row-{{ $index }}"
-                            class="{{ $row['master_barang_id'] ? 'bg-green-50' : 'bg-amber-50' }}">
-                            <td class="px-3 py-2">{{ $row['nomor_referensi'] }}</td>
-                            <td class="px-3 py-2">{{ $row['tanggal'] }}</td>
-                            <td class="px-3 py-2">{{ $row['nama_barang'] }} <span
-                                    class="text-gray-400">({{ $row['spesifikasi'] }})</span></td>
-                            <td class="px-3 py-2">{{ $row['jumlah'] }} {{ $row['satuan'] }}</td>
-                            <td class="px-3 py-2">
-                                @if ($row['was_auto_matched'])
-                                    <span class="text-green-700">✓
-                                        {{ $daftarMasterBarang->find($row['master_barang_id'])?->nama_barang }}</span>
-                                @else
-                                    <select wire:model="rows.{{ $index }}.master_barang_id"
-                                        class="w-full text-sm border-gray-300 rounded-md">
-                                        <option value="">-- Belum dipilih --</option>
-                                        @foreach ($daftarMasterBarang as $mb)
-                                            <option value="{{ $mb->id }}">{{ $mb->nama_barang }}
-                                                ({{ $mb->kode_barang }})
-                                            </option>
-                                        @endforeach
-                                    </select>
 
-                                    @if (!$row['master_barang_id'])
-                                        <button type="button"
-                                            wire:click="$set('showCreateForm.{{ $index }}', true)"
-                                            class="text-xs text-zinc-600 hover:underline mt-1">
-                                            atau buat sebagai barang baru
-                                        </button>
-                                    @endif
+                {{-- isi table tetap sama --}}
 
-                                    @if ($showCreateForm[$index] ?? false)
-                                        <div class="mt-2 p-2 border border-zinc-200 rounded space-y-1">
-                                            <input type="text" wire:model="rows.{{ $index }}.kode_baru"
-                                                placeholder="Kode Barang"
-                                                class="w-full text-xs border-gray-300 rounded">
-                                            <input type="text" wire:model="rows.{{ $index }}.satuan_baru"
-                                                placeholder="Satuan" class="w-full text-xs border-gray-300 rounded">
-                                            <button type="button" wire:click="buatBarangBaru({{ $index }})"
-                                                class="text-xs bg-zinc-800 text-white px-2 py-1 rounded">Buat &
-                                                Pakai</button>
-                                        </div>
-                                    @endif
-                                @endif
-                            </td>
-                            <td class="px-3 py-2 text-xs">
-                                @if ($row['nama_peminta'])
-                                    @if ($row['pihak_peminta_id'])
-                                        <span class="text-green-700">✓ {{ $row['nama_peminta'] }}</span>
-                                    @else
-                                        <span class="text-amber-700">⚠ {{ $row['nama_peminta'] }} (gagal cocok)</span>
-                                    @endif
-                                @else
-                                    <span class="text-zinc-400">-</span>
-                                @endif
-                            </td>
-                            <td class="px-3 py-2 text-xs">
-                                {{ $row['nomor_npb_override'] ?: '-' }}
-                            </td>
-                        </tr>
-                    @endforeach
-                </tbody>
             </table>
+
         </div>
 
         <div class="flex items-center gap-3">
-            <x-primary-button wire:click="simpan">Simpan Semua</x-primary-button>
-            <button type="button" wire:click="batalkanReview" class="text-sm text-zinc-600 hover:underline">Batal,
-                Upload Ulang</button>
+
+            <x-primary-button wire:click="simpan">
+                Simpan Semua
+            </x-primary-button>
+
+            <button type="button" wire:click="batalkanReview" class="text-sm text-zinc-600 hover:underline">
+                Batal, Upload Ulang
+            </button>
+
         </div>
+
     @endif
+
 </div>

@@ -103,8 +103,11 @@ new #[Layout('layouts.app')] class extends Component {
 }; ?>
 
 <div>
-    <div class="flex justify-between items-center mb-4">
-        <h2 class="text-lg font-semibold text-zinc-900">Riwayat Penerimaan Barang (BPU)</h2>
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+        <div>
+            <h1 class="text-2xl font-bold text-zinc-900">Penerimaan Barang</h1>
+            <p class="text-sm text-zinc-500 mt-1">Riwayat penerimaan barang sesuai dengan BPU.</p>
+        </div>
         <div class="flex gap-2">
             <a href="{{ route('barang-masuk.create') }}" wire:navigate>
                 <x-secondary-button>+ Tambah Manual</x-secondary-button>
