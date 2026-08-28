@@ -1,0 +1,139 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Models\BarangMasuk;
+use App\Models\MasterBarang;
+use App\Models\Pegawai;
+use App\Models\Sekolah;
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Livewire\Volt\Volt;
+use Tests\TestCase;
+
+class RapikanTampilanIndexTest extends TestCase
+{
+    use RefreshDatabase;
+
+    protected Sekolah $sekolah;
+    protected User $user;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->sekolah = Sekolah::create([
+            'nama_sekolah' => 'SDN 3 Rangkasbitung Timur',
+            'kode_sekolah' => 'SDN3RKST',
+            'nama_pemerintah' => 'X',
+            'nama_dinas' => 'Y',
+            'alamat' => 'Z',
+            'tempat' => 'W',
+        ]);
+        $this->user = User::factory()->create(['sekolah_id' => $this->sekolah->id]);
+    }
+
+    // ===== Master Barang =====
+
+    public function test_master_barang_bisa_di_sort_per_kolom(): void
+    {
+        MasterBarang::create(['sekolah_id' => $this->sekolah->id, 'kode_barang' => 'B', 'nama_barang' => 'Buku', 'satuan_default' => 'Pak']);
+        MasterBarang::create(['sekolah_id' => $this->sekolah->id, 'kode_barang' => 'A', 'nama_barang' => 'Amplop', 'satuan_default' => 'Pak']);
+
+        $component = Volt::actingAs($this->user)->test('pages.master-barang.index');
+
+        // default asc by nama_barang -> Amplop duluan
+        $component->assertSeeInOrder(['Amplop', 'Buku']);
+
+        // klik sort nama_barang lagi -> jadi desc
+        $component->call('sortir', 'nama_barang')->assertSeeInOrder(['Buku', 'Amplop']);
+    }
+
+    public function test_master_barang_bisa_difilter_kategori(): void
+    {
+        MasterBarang::create(['sekolah_id' => $this->sekolah->id, 'kode_barang' => 'A', 'nama_barang' => 'ATK A', 'kategori' => 'ATK', 'satuan_default' => 'Pak']);
+        MasterBarang::create(['sekolah_id' => $this->sekolah->id, 'kode_barang' => 'B', 'nama_barang' => 'Elektronik B', 'kategori' => 'Elektronik', 'satuan_default' => 'Unit']);
+
+        Volt::actingAs($this->user)->test('pages.master-barang.index')
+            ->set('filterKategori', 'ATK')
+            ->assertSee('ATK A')
+            ->assertDontSee('Elektronik B');
+    }
+
+    // ===== Barang Masuk =====
+
+    public function test_barang_masuk_bisa_dicari_by_nomor_bpu(): void
+    {
+        BarangMasuk::create(['sekolah_id' => $this->sekolah->id, 'nomor_bpu' => 'BPU-001', 'tanggal' => '2026-01-01']);
+        BarangMasuk::create(['sekolah_id' => $this->sekolah->id, 'nomor_bpu' => 'BPU-002', 'tanggal' => '2026-01-02']);
+
+        Volt::actingAs($this->user)->test('pages.barang-masuk.index')
+            ->set('search', 'BPU-001')
+            ->assertSee('BPU-001')
+            ->assertDontSee('BPU-002');
+    }
+
+    public function test_barang_masuk_bisa_di_sort_per_kolom(): void
+    {
+        BarangMasuk::create(['sekolah_id' => $this->sekolah->id, 'nomor_bpu' => 'BPU-AAA', 'tanggal' => '2026-01-01']);
+        BarangMasuk::create(['sekolah_id' => $this->sekolah->id, 'nomor_bpu' => 'BPU-ZZZ', 'tanggal' => '2026-01-02']);
+
+        Volt::actingAs($this->user)->test('pages.barang-masuk.index')
+            ->call('sortir', 'nomor_bpu')
+            ->assertSeeInOrder(['BPU-AAA', 'BPU-ZZZ']);
+    }
+
+    // ===== Pegawai =====
+
+    public function test_pegawai_bisa_difilter_kategori(): void
+    {
+        Pegawai::create(['sekolah_id' => $this->sekolah->id, 'nama' => 'Budi', 'jabatan' => 'Guru Kelas', 'kategori' => 'guru']);
+        Pegawai::create(['sekolah_id' => $this->sekolah->id, 'nama' => 'Siti', 'jabatan' => 'Kepala Sekolah', 'kategori' => 'kepala_sekolah']);
+
+        Volt::actingAs($this->user)->test('pages.pegawai.index')
+            ->set('filterKategori', 'guru')
+            ->assertSee('Budi')
+            ->assertDontSee('Siti');
+    }
+
+    public function test_pegawai_bisa_di_sort_per_kolom(): void
+    {
+        Pegawai::create(['sekolah_id' => $this->sekolah->id, 'nama' => 'Zainal', 'jabatan' => 'Guru', 'kategori' => 'guru']);
+        Pegawai::create(['sekolah_id' => $this->sekolah->id, 'nama' => 'Ani', 'jabatan' => 'Guru', 'kategori' => 'guru']);
+
+        $component = Volt::actingAs($this->user)->test('pages.pegawai.index');
+
+        $component->assertSeeInOrder(['Ani', 'Zainal']); // default asc
+
+        $component->call('sortir', 'nama')->assertSeeInOrder(['Zainal', 'Ani']); // toggle desc
+    }
+
+    // ===== Sort injection protection (whitelist kolom) =====
+
+    public function test_sortir_menolak_kolom_yang_tidak_di_whitelist(): void
+    {
+        MasterBarang::create(['sekolah_id' => $this->sekolah->id, 'kode_barang' => 'A', 'nama_barang' => 'Amplop', 'satuan_default' => 'Pak']);
+
+        // Kolom sensitif kayak 'id' atau nama kolom sembarangan nggak ada di whitelist -> diabaikan, nggak error
+        Volt::actingAs($this->user)->test('pages.master-barang.index')
+            ->call('sortir', 'sekolah_id')
+            ->assertOk()
+            ->assertSet('sortBy', 'nama_barang'); // nggak berubah
+    }
+
+    // ===== Pagination custom view =====
+
+    public function test_pagination_pakai_view_custom_bukan_default_laravel(): void
+    {
+        for ($i = 1; $i <= 15; $i++) {
+            MasterBarang::create(['sekolah_id' => $this->sekolah->id, 'kode_barang' => "A{$i}", 'nama_barang' => "Barang {$i}", 'satuan_default' => 'Pak']);
+        }
+
+        $html = Volt::actingAs($this->user)->test('pages.master-barang.index')->html();
+
+        // "rounded-l-md" cuma ada di view tailwind.blade.php bawaan Laravel, nggak dipakai
+        // di view custom kita -- kalau ini nggak muncul, berarti override-nya beneran jalan.
+        $this->assertStringNotContainsString('rounded-l-md', $html);
+        $this->assertStringContainsString('Menampilkan', $html); // teks dari view custom kita
+    }
+}

@@ -255,10 +255,10 @@ Ditemukan pas testing Fase 11: modul Persediaan/Transaksi masih kurang lengkap b
 - [x] Dropdown Profil di pojok kanan dashboard (link Pengaturan Sekolah + tombol Logout), hapus link lama di tempat sebelumnya
 
 ### 17 — Rapikan Master Barang, Barang Masuk & Pegawai
-- [ ] Sort per kolom di index Master Barang, Barang Masuk, dan Pegawai
-- [ ] Filter (kategori/kata kunci) di index Master Barang, Barang Masuk, dan Pegawai
-- [ ] Ganti pagination view default Laravel ke view custom (fix tampilan gelap di tema terang) — berlaku di ketiganya
-- [ ] Rapikan tampilan halaman Upload (step upload & review) Master Barang dan Barang Masuk
+- [x] Sort per kolom di index Master Barang, Barang Masuk, dan Pegawai
+- [x] Filter (kategori/kata kunci) di index Master Barang, Barang Masuk, dan Pegawai
+- [x] Ganti pagination view default Laravel ke view custom (fix tampilan gelap di tema terang) — berlaku di ketiganya
+- [x] Rapikan tampilan halaman Upload (step upload & review) Master Barang dan Barang Masuk
 
 ### 18 — Transaksi Keluar: Sederhanakan UI
 - [ ] Hapus sistem tab Draft/Selesai/Semua, gabung jadi 1 daftar dengan badge status (badge udah ada)

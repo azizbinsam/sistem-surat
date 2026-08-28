@@ -11,9 +11,10 @@ use Livewire\Attributes\Layout;
 use Livewire\Attributes\Url;
 use Livewire\Volt\Component;
 use Livewire\WithPagination;
+use App\Livewire\Concerns\HasCustomPagination;
 
 new #[Layout('layouts.app')] class extends Component {
-    use WithPagination;
+    use WithPagination, HasCustomPagination;
 
     #[Url]
     public string $tab = 'draft'; // draft | selesai | semua
