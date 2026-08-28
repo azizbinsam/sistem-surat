@@ -27,8 +27,8 @@ class KoreksiStokHalamanTest extends TestCase
         Volt::actingAs($user)
             ->test('pages.persediaan.koreksi')
             ->assertOk()
-            ->assertSee('kejadian fisik nyata')
-            ->assertSee('jangan pakai Koreksi')
+            ->assertSee('Kapan menggunakan koreksi?')
+            ->assertSee('Jangan gunakan untuk')
             ->assertSeeHtml(route('barang-masuk.index'))
             ->assertSeeHtml(route('transaksi.index'));
     }
