@@ -8,7 +8,6 @@ use App\Services\SuratPdfGenerator;
 use App\Services\SuratWordGenerator;
 use Illuminate\Support\Str;
 use Livewire\Attributes\Layout;
-use Livewire\Attributes\Url;
 use Livewire\Volt\Component;
 use Livewire\WithPagination;
 use App\Livewire\Concerns\HasCustomPagination;
@@ -16,17 +15,40 @@ use App\Livewire\Concerns\HasCustomPagination;
 new #[Layout('layouts.app')] class extends Component {
     use WithPagination, HasCustomPagination;
 
-    #[Url]
-    public string $tab = 'draft'; // draft | selesai | semua
+    public string $search = '';
+    public string $filterStatus = '';
+    public string $sortBy = 'tanggal_npb';
+    public string $sortDir = 'desc';
+
+    protected array $kolomBolehSort = ['nomor_referensi_asal', 'nomor_npb', 'tanggal_npb'];
 
     public array $pihakPeminta = [];
     public array $selected = [];
     public ?string $errorMsg = null;
 
-    public function updatedTab(): void
+    public function updatingSearch(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatingFilterStatus(): void
     {
         $this->resetPage();
         $this->selected = [];
+    }
+
+    public function sortir(string $kolom): void
+    {
+        if (!in_array($kolom, $this->kolomBolehSort, true)) {
+            return;
+        }
+
+        if ($this->sortBy === $kolom) {
+            $this->sortDir = $this->sortDir === 'asc' ? 'desc' : 'asc';
+        } else {
+            $this->sortBy = $kolom;
+            $this->sortDir = 'asc';
+        }
     }
 
     public function updated($name, $value): void
@@ -143,17 +165,15 @@ new #[Layout('layouts.app')] class extends Component {
 
     public function with(PersediaanService $service): array
     {
-        $query = Transaksi::where('sekolah_id', auth()->user()->sekolah_id)
+        $sekolahId = auth()->user()->sekolah_id;
+
+        $query = Transaksi::where('sekolah_id', $sekolahId)
+            ->when($this->search, fn($q) => $q->where('nomor_referensi_asal', 'like', "%{$this->search}%")->orWhere('nomor_npb', 'like', "%{$this->search}%"))
+            ->when($this->filterStatus, fn($q) => $q->where('status', $this->filterStatus))
             ->withCount('items')
             ->with('items.masterBarang', 'pihakPeminta');
 
-        if ($this->tab === 'draft') {
-            $query->where('status', 'draft');
-        } elseif ($this->tab === 'selesai') {
-            $query->where('status', 'selesai');
-        }
-
-        $daftarTransaksi = $query->orderByDesc('tanggal_npb')->paginate(10);
+        $daftarTransaksi = $query->orderBy($this->sortBy, $this->sortDir)->paginate(10);
 
         foreach ($daftarTransaksi as $t) {
             if ($t->status === 'draft' && !array_key_exists($t->id, $this->pihakPeminta)) {
@@ -167,15 +187,9 @@ new #[Layout('layouts.app')] class extends Component {
 
         return [
             'daftarTransaksi' => $daftarTransaksi,
-            'daftarPegawai' => Pegawai::where('sekolah_id', auth()->user()->sekolah_id)
-                ->orderBy('nama')
-                ->get(),
-            'jumlahDraft' => Transaksi::where('sekolah_id', auth()->user()->sekolah_id)
-                ->where('status', 'draft')
-                ->count(),
-            'jumlahSelesai' => Transaksi::where('sekolah_id', auth()->user()->sekolah_id)
-                ->where('status', 'selesai')
-                ->count(),
+            'daftarPegawai' => Pegawai::where('sekolah_id', $sekolahId)->orderBy('nama')->get(),
+            'jumlahDraft' => Transaksi::where('sekolah_id', $sekolahId)->where('status', 'draft')->count(),
+            'jumlahSelesai' => Transaksi::where('sekolah_id', $sekolahId)->where('status', 'selesai')->count(),
         ];
     }
 }; ?>
@@ -204,23 +218,25 @@ new #[Layout('layouts.app')] class extends Component {
         <div class="mb-4 p-3 bg-red-50 text-red-700 rounded-lg text-sm border border-red-100">{{ $errorMsg }}</div>
     @endif
 
-    {{-- TAB FILTER --}}
-    <div class="flex gap-1 mb-4 border-b border-zinc-200">
-        <button wire:click="$set('tab', 'draft')"
-            class="px-4 py-2 text-sm font-medium border-b-2 -mb-px {{ $tab === 'draft' ? 'border-emerald-600 text-emerald-600' : 'border-transparent text-zinc-500 hover:text-zinc-700' }}">
-            Draft ({{ $jumlahDraft }})
-        </button>
-        <button wire:click="$set('tab', 'selesai')"
-            class="px-4 py-2 text-sm font-medium border-b-2 -mb-px {{ $tab === 'selesai' ? 'border-emerald-600 text-emerald-600' : 'border-transparent text-zinc-500 hover:text-zinc-700' }}">
-            Selesai ({{ $jumlahSelesai }})
-        </button>
-        <button wire:click="$set('tab', 'semua')"
-            class="px-4 py-2 text-sm font-medium border-b-2 -mb-px {{ $tab === 'semua' ? 'border-emerald-600 text-emerald-600' : 'border-transparent text-zinc-500 hover:text-zinc-700' }}">
-            Semua
-        </button>
+    <div class="mb-4 flex flex-col sm:flex-row gap-3">
+        <div class="relative max-w-sm flex-1">
+            <svg class="w-4 h-4 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor"
+                viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input wire:model.live.debounce.300ms="search" type="text" placeholder="Cari no. referensi/nomor surat..."
+                class="w-full pl-10 pr-4 py-2.5 border-zinc-200 rounded-lg shadow-sm text-sm focus:border-emerald-500 focus:ring-emerald-500">
+        </div>
+        <select wire:model.live="filterStatus"
+            class="w-full sm:w-56 py-2.5 border-zinc-200 rounded-lg shadow-sm text-sm focus:border-emerald-500 focus:ring-emerald-500">
+            <option value="">Semua Status</option>
+            <option value="draft">Draft ({{ $jumlahDraft }})</option>
+            <option value="selesai">Selesai ({{ $jumlahSelesai }})</option>
+        </select>
     </div>
 
-    @if ($tab === 'draft' && count($selected) > 0)
+    @if (count($selected) > 0)
         <div class="mb-3 p-3 bg-zinc-100 rounded-lg flex items-center justify-between">
             <span class="text-sm text-zinc-700">{{ count($selected) }} transaksi dipilih</span>
             <div class="space-x-2">
@@ -238,22 +254,18 @@ new #[Layout('layouts.app')] class extends Component {
         <table class="min-w-full divide-y divide-zinc-100">
             <thead class="bg-zinc-50">
                 <tr>
-                    @if ($tab === 'draft')
-                        <th class="px-4 py-3">
-                            <input type="checkbox"
-                                wire:click="$set('selected', $event.target.checked ? {{ $daftarTransaksi->pluck('id') }} : [])">
-                        </th>
-                    @endif
-                    <th class="px-4 py-3 text-left text-xs font-semibold text-zinc-500 uppercase tracking-wider">No.
-                        Referensi</th>
-                    <th class="px-4 py-3 text-left text-xs font-semibold text-zinc-500 uppercase tracking-wider">Nomor
-                        Surat</th>
-                    <th class="px-4 py-3 text-left text-xs font-semibold text-zinc-500 uppercase tracking-wider">Tanggal
+                    <th class="px-4 py-3">
+                        <input type="checkbox"
+                            wire:click="$set('selected', $event.target.checked ? {{ $daftarTransaksi->pluck('id') }} : [])">
                     </th>
+                    <x-th-sortable column="nomor_referensi_asal" :sortBy="$sortBy" :sortDir="$sortDir">No. Referensi</x-th-sortable>
+                    <x-th-sortable column="nomor_npb" :sortBy="$sortBy" :sortDir="$sortDir">Nomor Surat</x-th-sortable>
+                    <x-th-sortable column="tanggal_npb" :sortBy="$sortBy" :sortDir="$sortDir">Tanggal</x-th-sortable>
                     <th class="px-4 py-3 text-left text-xs font-semibold text-zinc-500 uppercase tracking-wider">Rincian
                         Barang</th>
                     <th class="px-4 py-3 text-left text-xs font-semibold text-zinc-500 uppercase tracking-wider">Pihak
                         Meminta</th>
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-zinc-500 uppercase tracking-wider">Status</th>
                     <th class="px-4 py-3 text-right text-xs font-semibold text-zinc-500 uppercase tracking-wider">Aksi
                     </th>
                 </tr>
@@ -261,10 +273,7 @@ new #[Layout('layouts.app')] class extends Component {
             <tbody class="divide-y divide-zinc-100">
                 @forelse ($daftarTransaksi as $t)
                     <tr wire:key="transaksi-{{ $t->id }}" class="hover:bg-zinc-50">
-                        @if ($tab === 'draft')
-                            <td class="px-4 py-3"><input type="checkbox" wire:model="selected"
-                                    value="{{ $t->id }}"></td>
-                        @endif
+                        <td class="px-4 py-3"><input type="checkbox" wire:model="selected" value="{{ $t->id }}"></td>
                         <td class="px-4 py-3 text-sm font-medium text-zinc-900">{{ $t->nomor_referensi_asal }}</td>
                         <td class="px-4 py-3 text-sm text-zinc-500">{{ $t->nomor_npb ?? '-' }}</td>
                         <td class="px-4 py-3 text-sm text-zinc-500">{{ $t->tanggal_npb->format('d-m-Y') }}</td>
@@ -283,8 +292,8 @@ new #[Layout('layouts.app')] class extends Component {
                                 @endforeach
                             </ul>
                         </td>
-                        <td class="px-4 py-3 text-sm">
-                            @if ($tab === 'draft')
+                        <td class="px-4 py-3 text-sm w-56">
+                            @if ($t->status === 'draft')
                                 <x-combobox :options="$daftarPegawai->map(
                                     fn($p) => ['id' => $p->id, 'label' => $p->nama . ' (' . $p->jabatan . ')'],
                                 )" :model="'pihakPeminta.' . $t->id" placeholder="Cari pegawai..." />
@@ -292,32 +301,31 @@ new #[Layout('layouts.app')] class extends Component {
                                 {{ $t->pihakPeminta->nama ?? '-' }}
                             @endif
                         </td>
+                        <td class="px-4 py-3 text-sm">
+                            <span class="px-2 py-0.5 rounded-full text-xs font-medium
+                                {{ $t->status === 'selesai' ? 'bg-emerald-100 text-emerald-700' : 'bg-zinc-100 text-zinc-600' }}">
+                                {{ ucfirst($t->status) }}
+                            </span>
+                        </td>
                         <td class="px-4 py-3 text-sm text-right space-x-1 whitespace-nowrap">
-                            @if ($t->status === 'draft')
-                                <button wire:click="generate({{ $t->id }}, 'docx')" wire:loading.attr="disabled"
-                                    class="px-2 py-1 bg-zinc-800 text-white text-xs rounded-lg hover:bg-zinc-700">Word</button>
-                                <button wire:click="generate({{ $t->id }}, 'pdf')" wire:loading.attr="disabled"
-                                    class="px-2 py-1 bg-zinc-600 text-white text-xs rounded-lg hover:bg-zinc-500">PDF</button>
-                            @else
-                                <a href="{{ route('transaksi.edit', $t) }}" wire:navigate
-                                    class="text-zinc-500 hover:text-emerald-600 font-medium">Edit</a>
-                                <button wire:click="generate({{ $t->id }}, 'docx')" wire:loading.attr="disabled"
-                                    class="text-zinc-500 hover:text-emerald-600 font-medium">Word</button>
-                                <button wire:click="generate({{ $t->id }}, 'pdf')" wire:loading.attr="disabled"
-                                    class="text-zinc-500 hover:text-emerald-600 font-medium">PDF</button>
-                                <button wire:click="hapus({{ $t->id }})"
-                                    wire:confirm="Yakin hapus transaksi ini? Nomor surat {{ $t->nomor_npb }} akan hilang."
-                                    class="text-red-500 hover:text-red-700 font-medium">Hapus</button>
-                            @endif
+                            <a href="{{ route('transaksi.edit', $t) }}" wire:navigate
+                                class="text-zinc-500 hover:text-emerald-600 font-medium">Edit</a>
+                            <button wire:click="generate({{ $t->id }}, 'docx')" wire:loading.attr="disabled"
+                                wire:target="generate({{ $t->id }}, 'docx')"
+                                class="text-zinc-500 hover:text-emerald-600 font-medium">Word</button>
+                            <button wire:click="generate({{ $t->id }}, 'pdf')" wire:loading.attr="disabled"
+                                wire:target="generate({{ $t->id }}, 'pdf')"
+                                class="text-zinc-500 hover:text-emerald-600 font-medium">PDF</button>
+                            <button wire:click="hapus({{ $t->id }})"
+                                wire:confirm="Yakin hapus transaksi {{ $t->nomor_referensi_asal }}?{{ $t->nomor_npb ? ' Nomor surat ' . $t->nomor_npb . ' akan hilang.' : '' }}"
+                                class="text-red-500 hover:text-red-700 font-medium">Hapus</button>
                         </td>
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="7" class="px-5 py-16 text-center text-sm text-zinc-500">
-                            @if ($tab === 'draft')
-                                Belum ada draft transaksi.
-                            @elseif ($tab === 'selesai')
-                                Belum ada transaksi yang selesai digenerate.
+                        <td colspan="8" class="px-5 py-16 text-center text-sm text-zinc-500">
+                            @if ($search || $filterStatus)
+                                Tidak ada transaksi yang cocok dengan pencarian/filter.
                             @else
                                 Belum ada data transaksi.
                             @endif

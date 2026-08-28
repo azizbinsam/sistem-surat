@@ -94,12 +94,14 @@ class TransaksiKeluarCrudTest extends TestCase
         $this->assertSame('selesai', $transaksi->status);
         $this->assertDatabaseHas('transaksi_item', ['transaksi_id' => $transaksi->id, 'jumlah' => 8]);
 
-        // Tab filter: "selesai" harus nampilin ini, "draft" harus kosong
+        // Filter status: fitur tab udah dihapus (Fase 18), sekarang draft+selesai
+        // tampil bareng dalam 1 list dengan badge, filter status pakai dropdown.
         Volt::actingAs($this->user)->test('pages.transaksi.index')
-            ->assertDontSee('REF-001'); // default tab draft, harusnya kosong
+            ->set('filterStatus', 'draft')
+            ->assertDontSee('REF-001'); // transaksi ini udah "selesai", jadi nggak nongol di filter draft
 
         Volt::actingAs($this->user)->test('pages.transaksi.index')
-            ->set('tab', 'selesai')
+            ->set('filterStatus', 'selesai')
             ->assertSee('REF-001');
 
         // Hapus: barang harus balik ke stok (20 - 8 = 12, lalu balik ke 20)

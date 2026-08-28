@@ -261,9 +261,9 @@ Ditemukan pas testing Fase 11: modul Persediaan/Transaksi masih kurang lengkap b
 - [x] Rapikan tampilan halaman Upload (step upload & review) Master Barang dan Barang Masuk
 
 ### 18 — Transaksi Keluar: Sederhanakan UI
-- [ ] Hapus sistem tab Draft/Selesai/Semua, gabung jadi 1 daftar dengan badge status (badge udah ada)
-- [ ] Samakan fitur tampilan (sort/filter/pagination) dengan Barang Masuk (Fase 17)
-- [ ] Rapikan tampilan halaman Upload Transaksi Keluar (step upload & review)
+- [x] Hapus sistem tab Draft/Selesai/Semua, gabung jadi 1 daftar dengan badge status (badge udah ada)
+- [x] Samakan fitur tampilan (sort/filter/pagination) dengan Barang Masuk (Fase 17)
+- [x] Rapikan tampilan halaman Upload Transaksi Keluar (step upload & review)
 
 ### 19 — Dashboard v2
 - [ ] Install Chart.js (atau chart wrapper yang kompatibel Livewire/Volt)
