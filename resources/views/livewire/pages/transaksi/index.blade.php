@@ -247,7 +247,7 @@ new #[Layout('layouts.app')] class extends Component {
         </div>
     @endif
 
-    <div class="bg-white rounded-xl border border-zinc-100 shadow-sm overflow-hidden">
+    <div class="bg-white rounded-xl border border-zinc-100 shadow-sm overflow-visible">
         <table class="min-w-full divide-y divide-zinc-100">
             <thead class="bg-zinc-50">
                 <tr>

@@ -15,7 +15,7 @@ new class extends Component {
         class="fixed inset-y-0 left-0 z-50 w-64 bg-zinc-900 text-zinc-300 flex flex-col transform transition-transform duration-200 ease-in-out lg:translate-x-0">
         <div class="h-16 flex items-center px-6 border-b border-zinc-800 shrink-0">
             <a href="{{ route('dashboard') }}" wire:navigate class="text-white font-bold text-lg">
-                {{ config('app.name') }}
+                <x-app-logo class="text-white font-bold text-lg" />
             </a>
             <button @click="sidebarOpen = false" class="ml-auto text-zinc-400 lg:hidden">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -110,7 +110,7 @@ new #[Layout('layouts.app')] class extends Component {
                         </td>
                         <td class="px-4 py-3 text-sm font-medium text-right">
                             <a href="{{ route('persediaan.riwayat', $r->barang) }}" wire:navigate
-                                class="text-zinc-700 hover:underline">Riwayat</a>
+                                class="text-zinc-500 hover:text-emerald-600 font-medium">Riwayat</a>
                         </td>
                     </tr>
                 @empty

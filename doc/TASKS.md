@@ -274,11 +274,11 @@ Ditemukan pas testing Fase 11: modul Persediaan/Transaksi masih kurang lengkap b
 - [x] Section info donasi (ambil dari `rekening_donasi`, Fase 20)
 
 ### 20 — Panel Admin: Tahun Anggaran, Pengaturan Aplikasi & Donasi
-- [ ] Filament resource/action: "Buka Tahun Anggaran Baru" — bikin 1 baris tahun_anggaran baru untuk SEMUA sekolah sekaligus (loop semua sekolah, insert tahun_anggaran baru dengan nomor_urut_terakhir=0, set is_aktif lama jadi false)
-- [ ] Migration: tabel `app_settings` (singleton) dan `rekening_donasi`
-- [ ] Filament resource: Pengaturan Aplikasi (nama aplikasi, upload logo aplikasi)
-- [ ] Filament resource: Rekening Donasi (CRUD, upload foto bukti/QRIS)
-- [ ] Landing page & dashboard baca nama/logo aplikasi dari `app_settings` (bukan hardcoded)
+- [x] Filament resource/action: "Buka Tahun Anggaran Baru" — bikin 1 baris tahun_anggaran baru untuk SEMUA sekolah sekaligus (loop semua sekolah, insert tahun_anggaran baru dengan nomor_urut_terakhir=0, set is_aktif lama jadi false)
+- [x] Migration: tabel `app_settings` (singleton) dan `rekening_donasi`
+- [x] Filament resource: Pengaturan Aplikasi (nama aplikasi, upload logo aplikasi)
+- [x] Filament resource: Rekening Donasi (CRUD, upload foto bukti/QRIS)
+- [x] Landing page & dashboard baca nama/logo aplikasi dari `app_settings` (bukan hardcoded)
 
 ### 21 — Pengaturan Sekolah: Layout 2 Kolom
 - [ ] Reflow form jadi 2 kolom di desktop (identitas sekolah | kop surat & penomoran), tetap 1 kolom di mobile

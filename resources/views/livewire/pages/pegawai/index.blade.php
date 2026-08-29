@@ -145,9 +145,9 @@ new #[Layout('layouts.app')] class extends Component {
                         </td>
                         <td class="px-4 py-2 text-sm text-right space-x-2">
                             <a href="{{ route('pegawai.edit', $pegawai) }}" wire:navigate
-                                class="text-zinc-700 hover:underline">Edit</a>
+                                class="text-zinc-500 hover:text-emerald-600 font-medium">Edit</a>
                             <button wire:click="hapus({{ $pegawai->id }})" wire:confirm="Yakin hapus pegawai ini?"
-                                class="text-red-600 hover:underline">Hapus</button>
+                                class="text-red-500 hover:text-red-700 font-medium">Hapus</button>
                         </td>
                     </tr>
                 @empty

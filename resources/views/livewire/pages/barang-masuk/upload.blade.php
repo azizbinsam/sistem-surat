@@ -169,7 +169,6 @@ new #[Layout('layouts.app')] class extends Component {
 }; ?>
 
 <div class="max-w-4xl">
-
     <div class="mb-6">
         <a href="{{ route('barang-masuk.index') }}" wire:navigate
             class="text-sm text-zinc-500 hover:text-zinc-700 inline-flex items-center gap-1 mb-2">
@@ -178,20 +177,16 @@ new #[Layout('layouts.app')] class extends Component {
             </svg>
             Kembali
         </a>
-
         <h1 class="text-2xl font-bold text-zinc-900">
             Upload Penerimaan Barang (BPU)
         </h1>
-
         <p class="text-sm text-zinc-500 mt-1">
             Upload data BPU sekaligus lewat file Excel.
         </p>
     </div>
 
-
     {{-- Indikator Step --}}
     <div class="flex items-center gap-3 mb-6">
-
         {{-- Step 1 --}}
         <div class="flex items-center gap-2">
             <span
@@ -205,9 +200,7 @@ new #[Layout('layouts.app')] class extends Component {
                 @else
                     1
                 @endif
-
             </span>
-
             <span
                 class="text-sm font-medium
                 {{ $step === 'upload' ? 'text-zinc-900' : 'text-zinc-500' }}">
@@ -216,7 +209,6 @@ new #[Layout('layouts.app')] class extends Component {
         </div>
 
         <div class="flex-1 h-px bg-zinc-200"></div>
-
         {{-- Step 2 --}}
         <div class="flex items-center gap-2">
             <span
@@ -224,16 +216,13 @@ new #[Layout('layouts.app')] class extends Component {
                 {{ $step === 'review' ? 'bg-zinc-800 text-white' : 'bg-zinc-100 text-zinc-400' }}">
                 2
             </span>
-
             <span
                 class="text-sm font-medium
                 {{ $step === 'review' ? 'text-zinc-900' : 'text-zinc-400' }}">
                 Cek & Simpan
             </span>
         </div>
-
     </div>
-
 
     {{-- Error --}}
     @if ($errorMsg)
@@ -242,22 +231,18 @@ new #[Layout('layouts.app')] class extends Component {
         </div>
     @endif
 
-
     {{-- ========================= --}}
     {{-- STEP 1: UPLOAD --}}
     {{-- ========================= --}}
     @if ($step === 'upload')
         {{-- Informasi Format --}}
         <div class="mb-4 flex items-start gap-3 p-4 bg-zinc-50 rounded-lg border border-zinc-100">
-
             <svg class="w-5 h-5 mt-0.5 flex-shrink-0 text-zinc-500" fill="none" stroke="currentColor"
                 viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                     d="M13 16h-1v-4h-1m1-4h.01M12 21a9 9 0 100-18 9 9 0 000 18z" />
             </svg>
-
             <div class="text-sm text-zinc-600">
-
                 <p>
                     Kolom wajib:
                     <strong class="text-zinc-800">
@@ -266,7 +251,6 @@ new #[Layout('layouts.app')] class extends Component {
                     Satu Nomor BPU dapat muncul pada beberapa baris untuk item berbeda
                     dan akan otomatis digabung menjadi satu transaksi.
                 </p>
-
                 <a href="{{ route('barang-masuk.template') }}"
                     class="inline-flex items-center gap-1.5 mt-2 text-emerald-700
                         font-medium hover:text-emerald-800 hover:underline">
@@ -275,20 +259,16 @@ new #[Layout('layouts.app')] class extends Component {
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                             d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14" />
                     </svg>
-
                     Download Template Excel
                 </a>
 
             </div>
         </div>
 
-
         {{-- Upload Form --}}
         <form wire:submit="parse" class="space-y-4 bg-white p-6 rounded-xl border border-zinc-100 shadow-sm">
-
             <div>
                 <x-input-label for="file" value="File Excel" />
-
                 <input type="file" wire:model="file" id="file"
                     class="block mt-1 w-full text-sm text-zinc-600
                         file:mr-4 file:py-2 file:px-4
@@ -296,44 +276,33 @@ new #[Layout('layouts.app')] class extends Component {
                         file:text-sm file:font-medium
                         file:bg-zinc-100 file:text-zinc-700
                         hover:file:bg-zinc-200">
-
                 <x-input-error :messages="$errors->get('file')" class="mt-2" />
-
                 <div wire:loading wire:target="file" class="text-xs text-zinc-500 mt-1">
                     Mengunggah file...
                 </div>
             </div>
-
             <div class="flex items-center gap-3 pt-2">
-
                 <x-primary-button>
                     Proses & Cek Data
                 </x-primary-button>
-
                 <a href="{{ route('barang-masuk.index') }}" wire:navigate
                     class="text-sm text-zinc-500 hover:text-zinc-700">
                     Batal
                 </a>
-
             </div>
-
         </form>
     @endif
-
 
     {{-- ========================= --}}
     {{-- STEP 2: REVIEW --}}
     {{-- ========================= --}}
     @if ($step === 'review')
-
         <div class="mb-4 flex items-start gap-3 p-4 bg-zinc-50 rounded-lg border border-zinc-100">
-
             <svg class="w-5 h-5 mt-0.5 flex-shrink-0 text-zinc-500" fill="none" stroke="currentColor"
                 viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                     d="M13 16h-1v-4h-1m1-4h.01M12 21a9 9 0 100-18 9 9 0 000-18z" />
             </svg>
-
             <p class="text-sm text-zinc-600">
                 Ditemukan
                 <strong class="text-zinc-800">{{ count($rows) }}</strong>
@@ -344,81 +313,60 @@ new #[Layout('layouts.app')] class extends Component {
                 sedangkan barang yang memerlukan mapping manual ditandai
                 <span class="text-amber-700 font-medium">kuning</span>.
             </p>
-
         </div>
-
         <div class="bg-white rounded-xl border border-zinc-100 shadow-sm overflow-hidden mb-4">
-
             <table class="min-w-full divide-y divide-zinc-100 text-sm">
-
                 <thead class="bg-zinc-50">
                     <tr>
                         <th class="px-3 py-2.5 text-left text-xs font-semibold text-zinc-500 uppercase tracking-wider">
                             Nomor BPU
                         </th>
-
                         <th class="px-3 py-2.5 text-left text-xs font-semibold text-zinc-500 uppercase tracking-wider">
                             Tanggal
                         </th>
-
                         <th class="px-3 py-2.5 text-left text-xs font-semibold text-zinc-500 uppercase tracking-wider">
                             Nama Barang (Excel)
                         </th>
-
                         <th class="px-3 py-2.5 text-left text-xs font-semibold text-zinc-500 uppercase tracking-wider">
                             Jumlah
                         </th>
-
                         <th class="px-3 py-2.5 text-left text-xs font-semibold text-zinc-500 uppercase tracking-wider">
                             Mapping ke Master Barang
                         </th>
                     </tr>
                 </thead>
-
                 <tbody class="divide-y divide-zinc-100">
-
                     @foreach ($rows as $index => $row)
                         <tr wire:key="row-{{ $index }}"
                             class="{{ $row['master_barang_id'] ? 'bg-green-50' : 'bg-amber-50' }}">
-
                             <td class="px-3 py-2">
                                 {{ $row['nomor_bpu'] }}
                             </td>
-
                             <td class="px-3 py-2">
                                 {{ $row['tanggal'] }}
                             </td>
-
                             <td class="px-3 py-2">
                                 {{ $row['nama_barang'] }}
-
                                 <span class="text-gray-400">
                                     ({{ $row['spesifikasi'] }})
                                 </span>
                             </td>
-
                             <td class="px-3 py-2">
                                 {{ $row['jumlah'] }} {{ $row['satuan'] }}
                             </td>
-
                             <td class="px-3 py-2">
-
                                 @if ($row['was_auto_matched'])
                                     <span class="inline-flex items-center gap-1 text-green-700">
-
                                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
                                                 d="M5 13l4 4L19 7" />
                                         </svg>
-
                                         {{ $daftarMasterBarang->find($row['master_barang_id'])?->nama_barang }}
-
                                     </span>
                                 @else
                                     <select wire:model="rows.{{ $index }}.master_barang_id"
                                         class="w-full text-sm border-gray-300 rounded-md">
                                         <option value="">-- Belum dipilih --</option>
-
                                         @foreach ($daftarMasterBarang as $mb)
                                             <option value="{{ $mb->id }}">
                                                 {{ $mb->nama_barang }}
@@ -426,7 +374,6 @@ new #[Layout('layouts.app')] class extends Component {
                                             </option>
                                         @endforeach
                                     </select>
-
                                     @if (!$row['master_barang_id'])
                                         <button type="button"
                                             wire:click="$set('showCreateForm.{{ $index }}', true)"
@@ -434,49 +381,33 @@ new #[Layout('layouts.app')] class extends Component {
                                             atau buat sebagai barang baru
                                         </button>
                                     @endif
-
                                     @if ($showCreateForm[$index] ?? false)
                                         <div class="mt-2 p-2 border border-zinc-200 rounded space-y-1">
-
                                             <input type="text" wire:model="rows.{{ $index }}.kode_baru"
                                                 placeholder="Kode Barang"
                                                 class="w-full text-xs border-gray-300 rounded">
-
                                             <input type="text" wire:model="rows.{{ $index }}.satuan_baru"
                                                 placeholder="Satuan" class="w-full text-xs border-gray-300 rounded">
-
                                             <button type="button" wire:click="buatBarangBaru({{ $index }})"
                                                 class="text-xs bg-zinc-800 text-white px-2 py-1 rounded">
                                                 Buat & Pakai
                                             </button>
-
                                         </div>
                                     @endif
                                 @endif
-
                             </td>
-
                         </tr>
                     @endforeach
-
                 </tbody>
-
             </table>
-
         </div>
-
         <div class="flex items-center gap-3">
-
             <x-primary-button wire:click="simpan">
                 Simpan Semua
             </x-primary-button>
-
             <button type="button" wire:click="batalkanReview" class="text-sm text-zinc-500 hover:text-zinc-700">
                 Batal, Upload Ulang
             </button>
-
         </div>
-
     @endif
-
 </div>
