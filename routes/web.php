@@ -19,8 +19,6 @@ Route::middleware(['auth'])->group(function () {
         ->middleware('verified')
         ->name('dashboard');
 
-    Route::view('profile', 'profile')->name('profile');
-
     Volt::route('lengkapi-profil', 'pages.onboarding.lengkapi-profil')
         ->name('lengkapi-profil');
 
