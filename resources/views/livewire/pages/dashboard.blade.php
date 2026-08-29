@@ -15,6 +15,9 @@ new #[Layout('layouts.app')] class extends Component {
     /** Ambang batas sederhana buat nandain stok "menipis" — belum ada pengaturan per barang, jadi angka tetap dulu. */
     const AMBANG_STOK_MENIPIS = 5;
 
+    /** Berapa banyak item stok menipis yang langsung ditampilkan sebelum "lihat semua". */
+    const MAX_STOK_MENIPIS_TAMPIL = 5;
+
     public function with(PersediaanService $persediaan, TahunAnggaranResolver $resolver): array
     {
         $sekolahId = auth()->user()->sekolah_id;
@@ -35,6 +38,8 @@ new #[Layout('layouts.app')] class extends Component {
                 'topBarang' => collect(),
                 'draftVsSelesai' => [0, 0],
                 'stokMenipis' => collect(),
+                'stokMenipisTotal' => 0,
+                'suratTerakhir' => collect(),
                 'rekeningDonasi' => collect(),
             ];
         }
@@ -69,7 +74,12 @@ new #[Layout('layouts.app')] class extends Component {
         $topBarang = TransaksiItem::whereHas('transaksi', fn($q) => $q->where('sekolah_id', $sekolahId))->selectRaw('master_barang_id, SUM(jumlah) as total_keluar')->groupBy('master_barang_id')->orderByDesc('total_keluar')->with('masterBarang')->take(5)->get()->filter(fn($row) => $row->masterBarang !== null);
 
         // ===== Alert: barang dengan sisa stok menipis =====
-        $stokMenipis = MasterBarang::where('sekolah_id', $sekolahId)->get()->map(fn($barang) => ['barang' => $barang, 'sisa' => $persediaan->sisaSaatIni($barang->id)])->filter(fn($row) => $row['sisa'] <= self::AMBANG_STOK_MENIPIS)->sortBy('sisa')->values();
+        $stokMenipisSemua = MasterBarang::where('sekolah_id', $sekolahId)->get()->map(fn($barang) => ['barang' => $barang, 'sisa' => $persediaan->sisaSaatIni($barang->id)])->filter(fn($row) => $row['sisa'] <= self::AMBANG_STOK_MENIPIS)->sortBy('sisa')->values();
+        $stokMenipisTotal = $stokMenipisSemua->count();
+        $stokMenipis = $stokMenipisSemua->take(self::MAX_STOK_MENIPIS_TAMPIL);
+
+        // ===== Surat terakhir digenerate =====
+        $suratTerakhir = Transaksi::where('sekolah_id', $sekolahId)->where('status', 'selesai')->latest('updated_at')->take(5)->get();
 
         // ===== Info donasi (tabelnya baru dibuat di Fase 20 — cek dulu biar nggak error) =====
         $rekeningDonasi = collect();
@@ -89,6 +99,8 @@ new #[Layout('layouts.app')] class extends Component {
             'topBarang' => $topBarang,
             'draftVsSelesai' => [$draftMenunggu, $selesaiTotal],
             'stokMenipis' => $stokMenipis,
+            'stokMenipisTotal' => $stokMenipisTotal,
+            'suratTerakhir' => $suratTerakhir,
             'rekeningDonasi' => $rekeningDonasi,
         ];
     }
@@ -105,44 +117,53 @@ new #[Layout('layouts.app')] class extends Component {
         </p>
     </div>
 
-    {{-- Kartu ringkasan --}}
+    {{-- Kartu ringkasan (semua clickable ke halaman terkait) --}}
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div class="bg-white rounded-xl border border-zinc-100 shadow-sm p-5">
+        <a href="{{ route('master-barang.index') }}" wire:navigate
+            class="bg-white rounded-xl border border-zinc-100 shadow-sm p-5 hover:border-emerald-200 hover:shadow-md transition-all">
             <p class="text-sm text-zinc-500">Master Barang</p>
             <p class="text-3xl font-bold text-zinc-900 mt-1">{{ $jumlahBarang }}</p>
-        </div>
-        <div class="bg-white rounded-xl border border-zinc-100 shadow-sm p-5">
+        </a>
+        <a href="{{ route('pegawai.index') }}" wire:navigate
+            class="bg-white rounded-xl border border-zinc-100 shadow-sm p-5 hover:border-emerald-200 hover:shadow-md transition-all">
             <p class="text-sm text-zinc-500">Pegawai Terdaftar</p>
             <p class="text-3xl font-bold text-zinc-900 mt-1">{{ $jumlahPegawai }}</p>
-        </div>
-        <div class="bg-white rounded-xl border border-zinc-100 shadow-sm p-5">
+        </a>
+        <a href="{{ route('transaksi.index', ['status' => 'draft']) }}" wire:navigate
+            class="bg-white rounded-xl border border-zinc-100 shadow-sm p-5 hover:border-emerald-200 hover:shadow-md transition-all">
             <p class="text-sm text-zinc-500">Draft Menunggu</p>
             <p class="text-3xl font-bold text-zinc-900 mt-1">{{ $draftMenunggu }}</p>
             @if ($draftMenunggu > 0)
-                <a href="{{ route('transaksi.index') }}" wire:navigate
-                    class="text-xs text-emerald-600 hover:underline mt-1 inline-block">Proses sekarang →</a>
+                <span class="text-xs text-emerald-600 mt-1 inline-block">Proses sekarang →</span>
             @endif
-        </div>
-        <div class="bg-emerald-600 rounded-xl shadow-sm p-5">
+        </a>
+        <a href="{{ route('transaksi.index', ['status' => 'selesai']) }}" wire:navigate
+            class="bg-emerald-600 rounded-xl shadow-sm p-5 hover:bg-emerald-700 transition-all">
             <p class="text-sm text-emerald-100">Surat Selesai Bulan Ini</p>
             <p class="text-3xl font-bold text-white mt-1">{{ $suratBulanIni }}</p>
-        </div>
+        </a>
     </div>
 
     {{-- Alert stok menipis --}}
     @if ($stokMenipis->isNotEmpty())
         <div class="bg-amber-50 border border-amber-200 rounded-xl p-5">
             <h2 class="font-semibold text-amber-900 flex items-center gap-2">
-                ⚠ Stok Menipis ({{ $stokMenipis->count() }} barang)
+                ⚠ Stok Menipis ({{ $stokMenipisTotal }} barang)
             </h2>
             <p class="text-xs text-amber-700 mt-0.5 mb-3">Sisa {{ self::AMBANG_STOK_MENIPIS }} atau kurang.</p>
-            <div class="flex flex-wrap gap-2">
+            <div class="flex flex-wrap items-center gap-2">
                 @foreach ($stokMenipis as $row)
                     <a href="{{ route('barang-masuk.create') }}" wire:navigate
                         class="text-xs bg-white border border-amber-200 text-amber-800 px-3 py-1.5 rounded-lg hover:bg-amber-100">
                         {{ $row['barang']->nama_barang }} — sisa <strong>{{ $row['sisa'] }}</strong>
                     </a>
                 @endforeach
+                @if ($stokMenipisTotal > self::MAX_STOK_MENIPIS_TAMPIL)
+                    <a href="{{ route('master-barang.index') }}" wire:navigate
+                        class="text-xs text-amber-700 font-medium px-3 py-1.5 hover:underline">
+                        Lihat semua ({{ $stokMenipisTotal }}) →
+                    </a>
+                @endif
             </div>
         </div>
     @endif
@@ -204,7 +225,7 @@ new #[Layout('layouts.app')] class extends Component {
             <h2 class="font-semibold text-zinc-900">Surat Terakhir Digenerate</h2>
         </div>
         <div class="divide-y divide-zinc-100">
-            @forelse (Transaksi::where('sekolah_id', auth()->user()->sekolah_id)->where('status', 'selesai')->latest('updated_at')->take(5)->get() as $t)
+            @forelse ($suratTerakhir as $t)
                 <div class="px-5 py-3 flex items-center justify-between">
                     <div>
                         <p class="text-sm font-medium text-zinc-900">{{ $t->nomor_npb }}</p>
@@ -219,28 +240,97 @@ new #[Layout('layouts.app')] class extends Component {
         </div>
     </div>
 
-    {{-- Info donasi --}}
+    {{-- Donasi: floating button + modal, biar nggak ganggu flow utama dashboard --}}
     @if ($rekeningDonasi->isNotEmpty())
-        <div class="bg-white rounded-xl border border-zinc-100 shadow-sm p-5">
-            <h2 class="font-semibold text-zinc-900 flex items-center gap-2">Dukung Kami ❤️</h2>
-            <p class="text-sm text-zinc-500 mt-1 mb-4">
-                Aplikasi ini gratis buat semua sekolah. Kalau terbantu, donasi seikhlasnya sangat berarti buat
-                pengembangan ke depan.
-            </p>
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                @foreach ($rekeningDonasi as $rekening)
-                    <div class="border border-zinc-100 rounded-lg p-4 flex gap-3 items-center">
-                        @if ($rekening->foto)
-                            <img src="{{ \Illuminate\Support\Facades\Storage::url($rekening->foto) }}"
-                                class="w-14 h-14 rounded object-cover shrink-0">
-                        @endif
-                        <div class="min-w-0">
-                            <p class="text-sm font-semibold text-zinc-900">{{ $rekening->nama_bank }}</p>
-                            <p class="text-sm text-zinc-700 font-mono">{{ $rekening->nomor_rekening }}</p>
-                            <p class="text-xs text-zinc-500">a.n. {{ $rekening->atas_nama }}</p>
-                        </div>
+        <div x-data="{ open: false }">
+            <button @click="open = true" type="button"
+                class="fixed bottom-6 right-6 z-40 flex items-center gap-2 bg-white border border-zinc-200 shadow-lg rounded-full px-4 py-3 text-sm font-medium text-zinc-700 hover:shadow-xl hover:border-emerald-200 transition-all">
+                <span>❤️</span>
+                <span class="hidden sm:inline">Dukung Kami</span>
+            </button>
+
+            <div x-show="open" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4"
+                style="display: none;">
+                <div x-show="open" x-transition.opacity @click="open = false" class="absolute inset-0 bg-zinc-900/40">
+                </div>
+
+                <div x-show="open" x-transition x-trap.noscroll.inert="open" @keydown.escape.window="open = false"
+                    class="relative bg-white rounded-xl shadow-xl w-full max-w-md p-6">
+                    <button @click="open = false" type="button"
+                        class="absolute top-4 right-4 text-zinc-400 hover:text-zinc-600" aria-label="Tutup">✕</button>
+
+                    <h2 class="font-semibold text-zinc-900 flex items-center gap-2">Dukung Kami ❤️</h2>
+                    <p class="text-sm text-zinc-500 mt-1 mb-4">
+                        Aplikasi ini gratis buat semua sekolah. Kalau terbantu, donasi seikhlasnya sangat berarti
+                        buat pengembangan ke depan.
+                    </p>
+                    <div class="space-y-3 max-h-80 overflow-y-auto">
+                        @foreach ($rekeningDonasi as $rekening)
+                            <div x-data="{
+                                copied: false,
+                                async salin(nomor) {
+                                    // 1) Coba Clipboard API modern dulu
+                                    try {
+                                        await navigator.clipboard.writeText(nomor);
+                                        this.tandaiSukses();
+                                        return;
+                                    } catch (e) {
+                                        console.error('Clipboard API gagal:', e);
+                                    }
+                            
+                                    // 2) Fallback execCommand (browser lama / koneksi non-HTTPS).
+                                    // Di-attach ke this.$el, bukan document.body, karena modal
+                                    // pakai focus-trap yang bikin elemen di luar panel jadi inert.
+                                    try {
+                                        const el = document.createElement('textarea');
+                                        el.value = nomor;
+                                        el.style.position = 'fixed';
+                                        el.style.opacity = '0';
+                                        this.$el.appendChild(el);
+                                        el.focus();
+                                        el.select();
+                                        const sukses = document.execCommand('copy');
+                                        this.$el.removeChild(el);
+                                        if (sukses) {
+                                            this.tandaiSukses();
+                                            return;
+                                        }
+                                        console.error('execCommand(copy) mengembalikan false');
+                                    } catch (e) {
+                                        console.error('Fallback execCommand gagal:', e);
+                                    }
+                            
+                                    // 3) Fallback terakhir: prompt() — teksnya otomatis ter-select,
+                                    // tinggal Ctrl+C. Ini selalu jalan di semua browser.
+                                    window.prompt('Salin manual nomor rekening (sudah terpilih, tekan Ctrl+C):', nomor);
+                                },
+                                tandaiSukses() {
+                                    this.copied = true;
+                                    setTimeout(() => this.copied = false, 1500);
+                                },
+                            }"
+                                class="border border-zinc-100 rounded-lg p-4 flex gap-3 items-center">
+                                @if ($rekening->foto)
+                                    <img src="{{ \Illuminate\Support\Facades\Storage::url($rekening->foto) }}"
+                                        class="w-14 h-14 rounded object-cover shrink-0">
+                                @endif
+                                <div class="min-w-0 flex-1">
+                                    <p class="text-sm font-semibold text-zinc-900">{{ $rekening->nama_bank }}</p>
+                                    <p class="text-sm text-zinc-700 font-mono">{{ $rekening->nomor_rekening }}</p>
+                                    <p class="text-xs text-zinc-500">a.n. {{ $rekening->atas_nama }}</p>
+                                </div>
+                                <button type="button" @click="salin('{{ $rekening->nomor_rekening }}')"
+                                    class="shrink-0 text-xs font-medium px-3 py-1.5 rounded-lg border transition-colors min-w-[72px] text-center"
+                                    :class="copied
+                                        ?
+                                        'bg-emerald-50 border-emerald-200 text-emerald-700' :
+                                        'bg-white border-zinc-200 text-zinc-600 hover:bg-zinc-50'">
+                                    <span x-text="copied ? 'Tersalin ✓' : 'Salin'"></span>
+                                </button>
+                            </div>
+                        @endforeach
                     </div>
-                @endforeach
+                </div>
             </div>
         </div>
     @endif

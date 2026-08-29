@@ -1,8 +1,8 @@
 <x-filament-panels::page>
-    <form wire:submit="simpan">
+    <form wire:submit="simpan" class="space-y-4">
         {{ $this->form }}
 
-        <div class="mt-4">
+        <div>
             <x-filament::button type="submit">
                 Simpan
             </x-filament::button>
