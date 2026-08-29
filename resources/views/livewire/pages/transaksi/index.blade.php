@@ -29,6 +29,7 @@ new #[Layout('layouts.app')] class extends Component {
     public function updatingSearch(): void
     {
         $this->resetPage();
+        $this->selected = [];
     }
 
     public function updatingFilterStatus(): void
@@ -63,12 +64,66 @@ new #[Layout('layouts.app')] class extends Component {
         }
     }
 
-    public function hapus(int $transaksiId): void
-    {
-        $transaksi = Transaksi::where('sekolah_id', auth()->user()->sekolah_id)->findOrFail($transaksiId);
-        $transaksi->delete(); // items ikut kehapus via cascade, otomatis ngefek ke ledger (live-computed)
+    // ===== Hapus (satuan & bulk), lewat modal konfirmasi =====
+    public ?int $idHapusSatuan = null;
+    public bool $modeHapusBulk = false;
+    public bool $modalHapusTampil = false;
+    /** Ringkasan transaksi yang bakal kena hapus, buat ditampilin di modal (termasuk yang nomor suratnya bakal hilang). */
+    public array $transaksiTerpengaruh = [];
 
-        session()->flash('success', 'Transaksi berhasil dihapus.');
+    public function mintaHapusSatuan(int $id): void
+    {
+        $this->idHapusSatuan = $id;
+        $this->modeHapusBulk = false;
+        $this->transaksiTerpengaruh = $this->ambilRingkasanTransaksi([$id]);
+        $this->modalHapusTampil = true;
+    }
+
+    public function mintaHapusBulk(): void
+    {
+        if (empty($this->selected)) {
+            return;
+        }
+
+        $this->modeHapusBulk = true;
+        $this->transaksiTerpengaruh = $this->ambilRingkasanTransaksi($this->selected);
+        $this->modalHapusTampil = true;
+    }
+
+    protected function ambilRingkasanTransaksi(array $ids): array
+    {
+        return Transaksi::where('sekolah_id', auth()->user()->sekolah_id)
+            ->whereIn('id', $ids)
+            ->get(['id', 'nomor_referensi_asal', 'nomor_npb'])
+            ->map(fn($t) => ['nomor_referensi_asal' => $t->nomor_referensi_asal, 'nomor_npb' => $t->nomor_npb])
+            ->toArray();
+    }
+
+    public function batalHapus(): void
+    {
+        $this->idHapusSatuan = null;
+        $this->modeHapusBulk = false;
+        $this->modalHapusTampil = false;
+        $this->transaksiTerpengaruh = [];
+    }
+
+    public function eksekusiHapus(): void
+    {
+        $sekolahId = auth()->user()->sekolah_id;
+
+        if ($this->modeHapusBulk) {
+            $jumlah = Transaksi::where('sekolah_id', $sekolahId)->whereIn('id', $this->selected)->count();
+            // items ikut kehapus via cascade, otomatis ngefek ke ledger (live-computed)
+            Transaksi::where('sekolah_id', $sekolahId)->whereIn('id', $this->selected)->delete();
+            session()->flash('success', "{$jumlah} transaksi berhasil dihapus.");
+            $this->selected = [];
+        } else {
+            $transaksi = Transaksi::where('sekolah_id', $sekolahId)->findOrFail($this->idHapusSatuan);
+            $transaksi->delete();
+            session()->flash('success', 'Transaksi berhasil dihapus.');
+        }
+
+        $this->batalHapus();
     }
 
     public function generate(int $transaksiId, string $format, NomorSuratService $nomorService, SuratWordGenerator $wordGenerator, SuratPdfGenerator $pdfGenerator)
@@ -243,6 +298,9 @@ new #[Layout('layouts.app')] class extends Component {
                 <button wire:click="generateBulk('pdf')" wire:loading.attr="disabled"
                     class="px-3 py-1.5 bg-zinc-600 text-white text-xs rounded-lg hover:bg-zinc-500">Generate PDF
                     (ZIP)</button>
+                <button wire:click="mintaHapusBulk"
+                    class="px-3 py-1.5 bg-red-600 text-white text-xs font-medium rounded-lg hover:bg-red-500">Hapus
+                    Terpilih</button>
             </div>
         </div>
     @endif
@@ -318,30 +376,17 @@ new #[Layout('layouts.app')] class extends Component {
                             <button wire:click="generate({{ $t->id }}, 'pdf')" wire:loading.attr="disabled"
                                 wire:target="generate({{ $t->id }}, 'pdf')"
                                 class="text-zinc-500 hover:text-emerald-600 font-medium">PDF</button>
-                            <button wire:click="hapus({{ $t->id }})"
-                                wire:confirm="Yakin hapus transaksi {{ $t->nomor_referensi_asal }}?{{ $t->nomor_npb ? ' Nomor surat ' . $t->nomor_npb . ' akan hilang.' : '' }}"
+                            <button wire:click="mintaHapusSatuan({{ $t->id }})"
                                 class="text-red-500 hover:text-red-700 font-medium">Hapus</button>
                         </td>
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="8" class="px-5 py-16 text-center">
-                            <svg class="w-10 h-10 text-zinc-300 mx-auto mb-3" fill="none" stroke="currentColor"
-                                viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
-                                    d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                            </svg>
-                            <p class="text-sm text-zinc-500">
-                                @if ($search || $filterStatus)
-                                    Tidak ada transaksi yang cocok dengan pencarian/filter.
-                                @else
-                                    Belum ada data transaksi.
-                                @endif
-                            </p>
-                            @if (!$search && !$filterStatus)
-                                <a href="{{ route('transaksi.create') }}" wire:navigate
-                                    class="text-sm text-emerald-600 font-medium hover:underline mt-1 inline-block">+
-                                    Tambah transaksi keluar</a>
+                        <td colspan="8" class="px-5 py-16 text-center text-sm text-zinc-500">
+                            @if ($search || $filterStatus)
+                                Tidak ada transaksi yang cocok dengan pencarian/filter.
+                            @else
+                                Belum ada data transaksi.
                             @endif
                         </td>
                     </tr>
@@ -351,4 +396,26 @@ new #[Layout('layouts.app')] class extends Component {
     </div>
 
     <div class="mt-4">{{ $daftarTransaksi->links() }}</div>
+
+    <x-modal-konfirmasi-hapus :show="$modalHapusTampil" :title="$modeHapusBulk ? 'Hapus ' . count($selected) . ' Transaksi?' : 'Hapus Transaksi Ini?'">
+        @if ($modeHapusBulk)
+            <p>{{ count($selected) }} transaksi yang dipilih akan dihapus. Tindakan ini tidak bisa dibatalkan.</p>
+        @else
+            <p>Transaksi <strong>{{ $transaksiTerpengaruh[0]['nomor_referensi_asal'] ?? '' }}</strong> akan dihapus.
+                Tindakan ini
+                tidak bisa dibatalkan.</p>
+        @endif
+
+        @php $punyaNomorSurat = array_filter($transaksiTerpengaruh, fn($t) => !empty($t['nomor_npb'])); @endphp
+        @if (!empty($punyaNomorSurat))
+            <div class="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                <p class="text-xs font-medium text-amber-800 mb-1">⚠ Nomor surat berikut akan ikut hilang:</p>
+                <ul class="text-xs text-amber-700 list-disc list-inside space-y-0.5">
+                    @foreach ($punyaNomorSurat as $t)
+                        <li>{{ $t['nomor_npb'] }} ({{ $t['nomor_referensi_asal'] }})</li>
+                    @endforeach
+                </ul>
+            </div>
+        @endif
+    </x-modal-konfirmasi-hapus>
 </div>

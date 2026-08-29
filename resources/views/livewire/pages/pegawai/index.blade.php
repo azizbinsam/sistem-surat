@@ -26,11 +26,13 @@ new #[Layout('layouts.app')] class extends Component {
     public function updatingSearch(): void
     {
         $this->resetPage();
+        $this->selected = [];
     }
 
     public function updatingFilterKategori(): void
     {
         $this->resetPage();
+        $this->selected = [];
     }
 
     public function sortir(string $kolom): void
@@ -47,14 +49,57 @@ new #[Layout('layouts.app')] class extends Component {
         }
     }
 
-    public function hapus(Pegawai $pegawai): void
+    // ===== Hapus (satuan & bulk), lewat modal konfirmasi =====
+    public array $selected = [];
+    public ?int $idHapusSatuan = null;
+    public bool $modeHapusBulk = false;
+    public bool $modalHapusTampil = false;
+    public string $namaPegawaiDihapus = '';
+
+    public function mintaHapusSatuan(int $id): void
     {
-        if ($pegawai->sekolah_id !== auth()->user()->sekolah_id) {
-            abort(403);
+        $pegawai = Pegawai::where('sekolah_id', auth()->user()->sekolah_id)->findOrFail($id);
+
+        $this->idHapusSatuan = $id;
+        $this->modeHapusBulk = false;
+        $this->namaPegawaiDihapus = $pegawai->nama;
+        $this->modalHapusTampil = true;
+    }
+
+    public function mintaHapusBulk(): void
+    {
+        if (empty($this->selected)) {
+            return;
         }
 
-        $pegawai->delete();
-        session()->flash('success', 'Pegawai berhasil dihapus.');
+        $this->modeHapusBulk = true;
+        $this->modalHapusTampil = true;
+    }
+
+    public function batalHapus(): void
+    {
+        $this->idHapusSatuan = null;
+        $this->modeHapusBulk = false;
+        $this->modalHapusTampil = false;
+        $this->namaPegawaiDihapus = '';
+    }
+
+    public function eksekusiHapus(): void
+    {
+        $sekolahId = auth()->user()->sekolah_id;
+
+        if ($this->modeHapusBulk) {
+            $jumlah = Pegawai::where('sekolah_id', $sekolahId)->whereIn('id', $this->selected)->count();
+            Pegawai::where('sekolah_id', $sekolahId)->whereIn('id', $this->selected)->delete(); // soft delete
+            session()->flash('success', "{$jumlah} pegawai berhasil dihapus.");
+            $this->selected = [];
+        } else {
+            $pegawai = Pegawai::where('sekolah_id', $sekolahId)->findOrFail($this->idHapusSatuan);
+            $pegawai->delete(); // soft delete
+            session()->flash('success', 'Pegawai berhasil dihapus.');
+        }
+
+        $this->batalHapus();
     }
 
     public function with(): array
@@ -110,10 +155,24 @@ new #[Layout('layouts.app')] class extends Component {
         </select>
     </div>
 
+    @if (count($selected) > 0)
+        <div class="mb-3 p-3 bg-zinc-100 rounded-lg flex items-center justify-between">
+            <span class="text-sm text-zinc-700">{{ count($selected) }} pegawai dipilih</span>
+            <button wire:click="mintaHapusBulk"
+                class="px-3 py-1.5 bg-red-600 text-white text-xs font-medium rounded-lg hover:bg-red-500">
+                Hapus Terpilih
+            </button>
+        </div>
+    @endif
+
     <div class="bg-white rounded-xl border border-zinc-100 shadow-sm overflow-hidden">
         <table class="min-w-full divide-y divide-zinc-100">
             <thead class="bg-zinc-50">
                 <tr>
+                    <th class="pl-4 pr-2 py-3 w-10">
+                        <input type="checkbox" class="rounded"
+                            wire:click="$set('selected', $event.target.checked ? {{ $daftarPegawai->pluck('id') }} : [])">
+                    </th>
                     <x-th-sortable column="nama" :sortBy="$sortBy" :sortDir="$sortDir">Nama</x-th-sortable>
                     <th class="px-4 py-3 text-left text-xs font-semibold text-zinc-500 uppercase tracking-wider">NIP
                     </th>
@@ -128,6 +187,9 @@ new #[Layout('layouts.app')] class extends Component {
             <tbody class="divide-y divide-gray-200">
                 @forelse ($daftarPegawai as $pegawai)
                     <tr wire:key="pegawai-{{ $pegawai->id }}">
+                        <td class="pl-4 pr-2 py-3">
+                            <input type="checkbox" class="rounded" wire:model="selected" value="{{ $pegawai->id }}">
+                        </td>
                         <td class="px-4 py-3 text-sm font-medium text-zinc-900">{{ $pegawai->nama }}</td>
                         <td class="px-4 py-3 text-sm font-medium text-zinc-900">{{ $pegawai->nip ?? '-' }}</td>
                         <td class="px-4 py-3 text-sm font-medium text-zinc-900">{{ $pegawai->jabatan }}</td>
@@ -146,30 +208,17 @@ new #[Layout('layouts.app')] class extends Component {
                         <td class="px-4 py-2 text-sm text-right space-x-2">
                             <a href="{{ route('pegawai.edit', $pegawai) }}" wire:navigate
                                 class="text-zinc-500 hover:text-emerald-600 font-medium">Edit</a>
-                            <button wire:click="hapus({{ $pegawai->id }})" wire:confirm="Yakin hapus pegawai ini?"
+                            <button wire:click="mintaHapusSatuan({{ $pegawai->id }})"
                                 class="text-red-500 hover:text-red-700 font-medium">Hapus</button>
                         </td>
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="6" class="px-5 py-16 text-center">
-                            <svg class="w-10 h-10 text-zinc-300 mx-auto mb-3" fill="none" stroke="currentColor"
-                                viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
-                                    d="M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m6-1a4 4 0 100-8 4 4 0 000 8zm6 3a4 4 0 00-3-3.87" />
-                            </svg>
-                            <p class="text-sm text-zinc-500">
-                                @if ($search || $filterKategori)
-                                    Tidak ada pegawai yang cocok dengan pencarian/filter.
-                                @else
-                                    Belum ada data pegawai.
-                                @endif
-                            </p>
-                            @if (!$search && !$filterKategori)
-                                <a href="{{ route('pegawai.create') }}" wire:navigate
-                                    class="text-sm text-emerald-600 font-medium hover:underline mt-1 inline-block">+
-                                    Tambah
-                                    pegawai</a>
+                        <td colspan="7" class="px-4 py-6 text-center text-sm text-gray-500">
+                            @if ($search || $filterKategori)
+                                Tidak ada pegawai yang cocok dengan pencarian/filter.
+                            @else
+                                Belum ada data pegawai.
                             @endif
                         </td>
                     </tr>
@@ -179,4 +228,13 @@ new #[Layout('layouts.app')] class extends Component {
     </div>
 
     <div class="mt-4">{{ $daftarPegawai->links() }}</div>
+
+    <x-modal-konfirmasi-hapus :show="$modalHapusTampil" :title="$modeHapusBulk ? 'Hapus ' . count($selected) . ' Pegawai?' : 'Hapus Pegawai Ini?'">
+        @if ($modeHapusBulk)
+            <p>{{ count($selected) }} pegawai yang dipilih akan dihapus. Tindakan ini tidak bisa dibatalkan.</p>
+        @else
+            <p>Data pegawai <strong>{{ $namaPegawaiDihapus }}</strong> akan dihapus. Tindakan ini tidak bisa
+                dibatalkan.</p>
+        @endif
+    </x-modal-konfirmasi-hapus>
 </div>

@@ -20,6 +20,7 @@ new #[Layout('layouts.app')] class extends Component {
     public function updatingSearch(): void
     {
         $this->resetPage();
+        $this->selected = [];
     }
 
     public function sortir(string $kolom): void
@@ -36,57 +37,93 @@ new #[Layout('layouts.app')] class extends Component {
         }
     }
 
-    public ?int $bpuAkanDihapus = null;
-    public string $nomorBpuAkanDihapus = '';
-    public string $warningHapus = '';
+    // ===== Hapus (satuan & bulk), lewat modal konfirmasi. Cek dampak ledger dulu:
+    // kalau ada barang yang sisanya jadi minus (berarti udah kepake di transaksi
+    // keluar), tampilkan peringatan di dalam modal sebelum user konfirmasi.
+    public array $selected = [];
+    public ?int $idHapusSatuan = null;
+    public bool $modeHapusBulk = false;
+    public bool $modalHapusTampil = false;
+    public array $peringatanStok = [];
+    public string $nomorBpuDihapus = '';
 
-    /**
-     * Klik pertama: cek dampak ke ledger dulu sebelum beneran hapus.
-     * Kalau ada barang yang sisanya jadi minus (berarti udah kepake di transaksi keluar),
-     * tampilkan warning + minta konfirmasi eksplisit lagi.
-     */
-    public function konfirmasiHapus(int $id, PersediaanService $service): void
-    {
-        $bpu = BarangMasuk::where('sekolah_id', auth()->user()->sekolah_id)
-            ->with('items.masterBarang')
-            ->findOrFail($id);
-
-        $peringatan = [];
-        foreach ($bpu->items as $item) {
-            $sisaSetelahHapus = $service->sisaSaatIni($item->master_barang_id) - $item->jumlah;
-            if ($sisaSetelahHapus < 0) {
-                $peringatan[] = "{$item->masterBarang->nama_barang} (sisa jadi {$sisaSetelahHapus})";
-            }
-        }
-
-        if (!empty($peringatan)) {
-            $this->bpuAkanDihapus = $id;
-            $this->nomorBpuAkanDihapus = $bpu->nomor_bpu;
-            $this->warningHapus = 'Menghapus BPU ini bikin stok minus: ' . implode(', ', $peringatan) . '. Artinya udah ada transaksi keluar yang kepake dari barang ini — cek dulu sebelum lanjut.';
-            return;
-        }
-
-        $this->hapus($id);
-    }
-
-    public function hapus(int $id): void
+    public function mintaHapusSatuan(int $id, PersediaanService $service): void
     {
         $bpu = BarangMasuk::where('sekolah_id', auth()->user()->sekolah_id)->findOrFail($id);
 
-        DB::transaction(function () use ($bpu) {
-            $bpu->delete(); // barang_masuk_item ikut kehapus (cascadeOnDelete)
-        });
+        $this->idHapusSatuan = $id;
+        $this->modeHapusBulk = false;
+        $this->nomorBpuDihapus = $bpu->nomor_bpu;
+        $this->peringatanStok = $this->hitungPeringatanStok([$id], $service);
+        $this->modalHapusTampil = true;
+    }
 
-        $this->batalHapus();
+    public function mintaHapusBulk(PersediaanService $service): void
+    {
+        if (empty($this->selected)) {
+            return;
+        }
 
-        session()->flash('success', 'Penerimaan barang berhasil dihapus.');
+        $this->modeHapusBulk = true;
+        $this->peringatanStok = $this->hitungPeringatanStok($this->selected, $service);
+        $this->modalHapusTampil = true;
+    }
+
+    protected function hitungPeringatanStok(array $bpuIds, PersediaanService $service): array
+    {
+        $bpuList = BarangMasuk::where('sekolah_id', auth()->user()->sekolah_id)
+            ->whereIn('id', $bpuIds)
+            ->with('items.masterBarang')
+            ->get();
+
+        $peringatan = [];
+        foreach ($bpuList as $bpu) {
+            foreach ($bpu->items as $item) {
+                $sisaSetelahHapus = $service->sisaSaatIni($item->master_barang_id) - $item->jumlah;
+                if ($sisaSetelahHapus < 0) {
+                    $peringatan[] = "{$item->masterBarang->nama_barang} (dari BPU {$bpu->nomor_bpu}, sisa jadi {$sisaSetelahHapus})";
+                }
+            }
+        }
+
+        return $peringatan;
     }
 
     public function batalHapus(): void
     {
-        $this->bpuAkanDihapus = null;
-        $this->nomorBpuAkanDihapus = '';
-        $this->warningHapus = '';
+        $this->idHapusSatuan = null;
+        $this->modeHapusBulk = false;
+        $this->modalHapusTampil = false;
+        $this->peringatanStok = [];
+        $this->nomorBpuDihapus = '';
+    }
+
+    public function eksekusiHapus(): void
+    {
+        $sekolahId = auth()->user()->sekolah_id;
+
+        if ($this->modeHapusBulk) {
+            $ids = $this->selected;
+            $jumlah = count($ids);
+
+            DB::transaction(function () use ($sekolahId, $ids) {
+                // barang_masuk_item ikut kehapus (cascadeOnDelete)
+                BarangMasuk::where('sekolah_id', $sekolahId)->whereIn('id', $ids)->delete();
+            });
+
+            session()->flash('success', "{$jumlah} data penerimaan barang berhasil dihapus.");
+            $this->selected = [];
+        } else {
+            $bpu = BarangMasuk::where('sekolah_id', $sekolahId)->findOrFail($this->idHapusSatuan);
+
+            DB::transaction(function () use ($bpu) {
+                $bpu->delete(); // barang_masuk_item ikut kehapus (cascadeOnDelete)
+            });
+
+            session()->flash('success', 'Penerimaan barang berhasil dihapus.');
+        }
+
+        $this->batalHapus();
     }
 
     public function with(): array
@@ -122,21 +159,6 @@ new #[Layout('layouts.app')] class extends Component {
         <div class="mb-4 p-3 bg-zinc-100 text-zinc-800 rounded-md text-sm">{{ session('success') }}</div>
     @endif
 
-    @if ($warningHapus)
-        <div class="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-lg">
-            <p class="text-sm text-amber-800 font-medium">⚠ BPU {{ $nomorBpuAkanDihapus }}: {{ $warningHapus }}</p>
-            <div class="mt-2 flex gap-2">
-                <button wire:click="hapus({{ $bpuAkanDihapus }})"
-                    class="text-sm bg-amber-600 text-white px-3 py-1.5 rounded-lg hover:bg-amber-500">
-                    Ya, Tetap Hapus
-                </button>
-                <button wire:click="batalHapus" class="text-sm text-zinc-600 px-3 py-1.5 rounded-lg hover:bg-zinc-100">
-                    Batal
-                </button>
-            </div>
-        </div>
-    @endif
-
     <div class="mb-4 relative max-w-sm">
         <svg class="w-4 h-4 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor"
             viewBox="0 0 24 24">
@@ -147,10 +169,24 @@ new #[Layout('layouts.app')] class extends Component {
             class="w-full pl-10 pr-4 py-2.5 border-zinc-200 rounded-lg shadow-sm text-sm focus:border-emerald-500 focus:ring-emerald-500">
     </div>
 
+    @if (count($selected) > 0)
+        <div class="mb-3 p-3 bg-zinc-100 rounded-lg flex items-center justify-between">
+            <span class="text-sm text-zinc-700">{{ count($selected) }} BPU dipilih</span>
+            <button wire:click="mintaHapusBulk"
+                class="px-3 py-1.5 bg-red-600 text-white text-xs font-medium rounded-lg hover:bg-red-500">
+                Hapus Terpilih
+            </button>
+        </div>
+    @endif
+
     <div class="bg-white rounded-md shadow overflow-x-auto">
         <table class="min-w-full divide-y divide-gray-200">
             <thead class="bg-zinc-50">
                 <tr>
+                    <th class="pl-4 pr-2 py-3 w-10">
+                        <input type="checkbox" class="rounded"
+                            wire:click="$set('selected', $event.target.checked ? {{ $daftarBpu->pluck('id') }} : [])">
+                    </th>
                     <x-th-sortable column="nomor_bpu" :sortBy="$sortBy" :sortDir="$sortDir">Nomor BPU</x-th-sortable>
                     <x-th-sortable column="tanggal" :sortBy="$sortBy" :sortDir="$sortDir">Tanggal</x-th-sortable>
                     <th class="px-4 py-2 text-left text-xs font-medium text-zinc-600 uppercase">Jumlah Item</th>
@@ -162,6 +198,9 @@ new #[Layout('layouts.app')] class extends Component {
             <tbody class="divide-y divide-gray-200">
                 @forelse ($daftarBpu as $bpu)
                     <tr wire:key="bpu-{{ $bpu->id }}">
+                        <td class="pl-4 pr-2 py-2">
+                            <input type="checkbox" class="rounded" wire:model="selected" value="{{ $bpu->id }}">
+                        </td>
                         <td class="px-4 py-2 text-sm font-medium">{{ $bpu->nomor_bpu }}</td>
                         <td class="px-4 py-2 text-sm">{{ $bpu->tanggal->format('d-m-Y') }}</td>
                         <td class="px-4 py-2 text-sm">{{ $bpu->items_count }} item</td>
@@ -171,30 +210,17 @@ new #[Layout('layouts.app')] class extends Component {
                         <td class="px-5 py-3.5 text-sm text-right space-x-3">
                             <a href="{{ route('barang-masuk.edit', $bpu) }}" wire:navigate
                                 class="text-zinc-500 hover:text-emerald-600 font-medium">Edit</a>
-                            <button wire:click="konfirmasiHapus({{ $bpu->id }})"
-                                wire:confirm="Yakin mau hapus BPU {{ $bpu->nomor_bpu }}?"
+                            <button wire:click="mintaHapusSatuan({{ $bpu->id }})"
                                 class="text-red-500 hover:text-red-700 font-medium">Hapus</button>
                         </td>
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="5" class="px-5 py-16 text-center">
-                            <svg class="w-10 h-10 text-zinc-300 mx-auto mb-3" fill="none" stroke="currentColor"
-                                viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
-                                    d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                            </svg>
-                            <p class="text-sm text-zinc-500">
-                                @if ($search)
-                                    Tidak ada BPU yang cocok dengan pencarian/filter.
-                                @else
-                                    Belum ada data penerimaan barang.
-                                @endif
-                            </p>
-                            @if (!$search)
-                                <a href="{{ route('barang-masuk.create') }}" wire:navigate
-                                    class="text-sm text-emerald-600 font-medium hover:underline mt-1 inline-block">+
-                                    Tambah penerimaan barang pertama</a>
+                        <td colspan="6" class="px-4 py-6 text-center text-sm text-gray-500">
+                            @if ($search)
+                                Tidak ada BPU yang cocok dengan pencarian.
+                            @else
+                                Belum ada data penerimaan barang.
                             @endif
                         </td>
                     </tr>
@@ -204,4 +230,26 @@ new #[Layout('layouts.app')] class extends Component {
     </div>
 
     <div class="mt-4">{{ $daftarBpu->links() }}</div>
+
+    <x-modal-konfirmasi-hapus :show="$modalHapusTampil" :title="$modeHapusBulk ? 'Hapus ' . count($selected) . ' BPU?' : 'Hapus BPU Ini?'">
+        @if ($modeHapusBulk)
+            <p>{{ count($selected) }} data penerimaan barang yang dipilih akan dihapus. Tindakan ini tidak bisa
+                dibatalkan.</p>
+        @else
+            <p>BPU <strong>{{ $nomorBpuDihapus }}</strong> akan dihapus. Tindakan ini tidak bisa dibatalkan.</p>
+        @endif
+
+        @if (!empty($peringatanStok))
+            <div class="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                <p class="text-xs font-medium text-amber-800 mb-1">⚠ Menghapus ini bikin stok minus:</p>
+                <ul class="text-xs text-amber-700 list-disc list-inside space-y-0.5">
+                    @foreach ($peringatanStok as $peringatan)
+                        <li>{{ $peringatan }}</li>
+                    @endforeach
+                </ul>
+                <p class="text-xs text-amber-700 mt-1.5">Artinya udah ada transaksi keluar yang kepake dari barang
+                    ini — cek dulu sebelum lanjut.</p>
+            </div>
+        @endif
+    </x-modal-konfirmasi-hapus>
 </div>

@@ -19,11 +19,13 @@ new #[Layout('layouts.app')] class extends Component {
     public function updatingSearch(): void
     {
         $this->resetPage();
+        $this->selected = [];
     }
 
     public function updatingFilterKategori(): void
     {
         $this->resetPage();
+        $this->selected = [];
     }
 
     public function sortir(string $kolom): void
@@ -40,15 +42,61 @@ new #[Layout('layouts.app')] class extends Component {
         }
     }
 
-    public function hapus(MasterBarang $masterBarang): void
+    // ===== Hapus (satuan & bulk), lewat modal konfirmasi =====
+    public array $selected = [];
+    public ?int $idHapusSatuan = null;
+    public bool $modeHapusBulk = false;
+    public bool $modalHapusTampil = false;
+    /** Info barang yang lagi mau dihapus (mode satuan), buat ditampilin di modal. */
+    public string $namaBarangDihapus = '';
+    public string $kodeBarangDihapus = '';
+
+    public function mintaHapusSatuan(int $id): void
     {
-        // pastikan barang ini milik sekolah yang sedang login (proteksi tenant)
-        if ($masterBarang->sekolah_id !== auth()->user()->sekolah_id) {
-            abort(403);
+        $barang = MasterBarang::where('sekolah_id', auth()->user()->sekolah_id)->findOrFail($id);
+
+        $this->idHapusSatuan = $id;
+        $this->modeHapusBulk = false;
+        $this->namaBarangDihapus = $barang->nama_barang;
+        $this->kodeBarangDihapus = $barang->kode_barang;
+        $this->modalHapusTampil = true;
+    }
+
+    public function mintaHapusBulk(): void
+    {
+        if (empty($this->selected)) {
+            return;
         }
 
-        $masterBarang->delete(); // soft delete
-        session()->flash('success', 'Barang berhasil dihapus.');
+        $this->modeHapusBulk = true;
+        $this->modalHapusTampil = true;
+    }
+
+    public function batalHapus(): void
+    {
+        $this->idHapusSatuan = null;
+        $this->modeHapusBulk = false;
+        $this->modalHapusTampil = false;
+        $this->namaBarangDihapus = '';
+        $this->kodeBarangDihapus = '';
+    }
+
+    public function eksekusiHapus(): void
+    {
+        $sekolahId = auth()->user()->sekolah_id;
+
+        if ($this->modeHapusBulk) {
+            $jumlah = MasterBarang::where('sekolah_id', $sekolahId)->whereIn('id', $this->selected)->count();
+            MasterBarang::where('sekolah_id', $sekolahId)->whereIn('id', $this->selected)->delete(); // soft delete
+            session()->flash('success', "{$jumlah} barang berhasil dihapus.");
+            $this->selected = [];
+        } else {
+            $barang = MasterBarang::where('sekolah_id', $sekolahId)->findOrFail($this->idHapusSatuan);
+            $barang->delete(); // soft delete
+            session()->flash('success', 'Barang berhasil dihapus.');
+        }
+
+        $this->batalHapus();
     }
 
     public function with(): array
@@ -109,10 +157,24 @@ new #[Layout('layouts.app')] class extends Component {
         </select>
     </div>
 
+    @if (count($selected) > 0)
+        <div class="mb-3 p-3 bg-zinc-100 rounded-lg flex items-center justify-between">
+            <span class="text-sm text-zinc-700">{{ count($selected) }} barang dipilih</span>
+            <button wire:click="mintaHapusBulk"
+                class="px-3 py-1.5 bg-red-600 text-white text-xs font-medium rounded-lg hover:bg-red-500">
+                Hapus Terpilih
+            </button>
+        </div>
+    @endif
+
     <div class="bg-white rounded-xl border border-zinc-100 shadow-sm overflow-hidden">
         <table class="min-w-full divide-y divide-zinc-100">
             <thead class="bg-zinc-50">
                 <tr>
+                    <th class="pl-5 pr-2 py-3 w-10">
+                        <input type="checkbox" class="rounded"
+                            wire:click="$set('selected', $event.target.checked ? {{ $daftarBarang->pluck('id') }} : [])">
+                    </th>
                     <x-th-sortable column="kode_barang" :sortBy="$sortBy" :sortDir="$sortDir">Kode</x-th-sortable>
                     <x-th-sortable column="nama_barang" :sortBy="$sortBy" :sortDir="$sortDir">Nama Barang</x-th-sortable>
                     <x-th-sortable column="kategori" :sortBy="$sortBy" :sortDir="$sortDir">Kategori</x-th-sortable>
@@ -124,6 +186,9 @@ new #[Layout('layouts.app')] class extends Component {
             <tbody class="divide-y divide-zinc-100">
                 @forelse ($daftarBarang as $barang)
                     <tr wire:key="barang-{{ $barang->id }}" class="hover:bg-zinc-50 transition">
+                        <td class="pl-5 pr-2 py-3.5">
+                            <input type="checkbox" class="rounded" wire:model="selected" value="{{ $barang->id }}">
+                        </td>
                         <td class="px-5 py-3.5 text-sm text-zinc-600 font-mono">{{ $barang->kode_barang }}</td>
                         <td class="px-5 py-3.5 text-sm font-medium text-zinc-900">{{ $barang->nama_barang }}</td>
                         <td class="px-5 py-3.5 text-sm text-zinc-500">{{ $barang->kategori ?? '-' }}</td>
@@ -131,13 +196,13 @@ new #[Layout('layouts.app')] class extends Component {
                         <td class="px-5 py-3.5 text-sm text-right space-x-3">
                             <a href="{{ route('master-barang.edit', $barang) }}" wire:navigate
                                 class="text-zinc-500 hover:text-emerald-600 font-medium">Edit</a>
-                            <button wire:click="hapus({{ $barang->id }})" wire:confirm="Yakin hapus barang ini?"
+                            <button wire:click="mintaHapusSatuan({{ $barang->id }})"
                                 class="text-red-500 hover:text-red-700 font-medium">Hapus</button>
                         </td>
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="5" class="px-5 py-16 text-center">
+                        <td colspan="6" class="px-5 py-16 text-center">
                             <svg class="w-10 h-10 text-zinc-300 mx-auto mb-3" fill="none" stroke="currentColor"
                                 viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
@@ -165,4 +230,13 @@ new #[Layout('layouts.app')] class extends Component {
     <div class="mt-4">
         {{ $daftarBarang->links() }}
     </div>
+
+    <x-modal-konfirmasi-hapus :show="$modalHapusTampil" :title="$modeHapusBulk ? 'Hapus ' . count($selected) . ' Barang?' : 'Hapus Barang Ini?'">
+        @if ($modeHapusBulk)
+            <p>{{ count($selected) }} barang yang dipilih akan dihapus. Tindakan ini tidak bisa dibatalkan.</p>
+        @else
+            <p><strong>{{ $namaBarangDihapus }}</strong> ({{ $kodeBarangDihapus }}) akan dihapus. Tindakan ini
+                tidak bisa dibatalkan.</p>
+        @endif
+    </x-modal-konfirmasi-hapus>
 </div>

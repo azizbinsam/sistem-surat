@@ -155,14 +155,14 @@
             </div>
 
             {{-- Actions --}}
-            <div class="flex items-center gap-3 mt-6 pt-5 border-t border-zinc-100">
+            <div class="flex items-center gap-2 mt-6 pt-5 border-t border-zinc-100">
 
                 <x-primary-button>
                     Simpan
                 </x-primary-button>
 
                 <a href="{{ route('pegawai.index') }}" wire:navigate
-                    class="text-sm text-zinc-600 hover:text-zinc-900 hover:underline">
+                    class="px-4 py-2 text-sm font-medium text-zinc-600 rounded-lg hover:bg-zinc-100">
                     Batal
                 </a>
 

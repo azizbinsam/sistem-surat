@@ -78,10 +78,10 @@ new #[Layout('layouts.app')] class extends Component {
             <div wire:loading wire:target="file" class="text-xs text-zinc-500 mt-1">Mengunggah file...</div>
         </div>
 
-        <div class="flex items-center gap-3">
+        <div class="flex items-center gap-2">
             <x-primary-button>Import</x-primary-button>
             <a href="{{ route('pegawai.index') }}" wire:navigate
-                class="text-sm text-zinc-500 hover:text-zinc-700">Batal</a>
+                class="px-4 py-2 text-sm font-medium text-zinc-600 rounded-lg hover:bg-zinc-100">Batal</a>
         </div>
     </form>
 </div>
