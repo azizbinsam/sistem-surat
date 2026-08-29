@@ -281,9 +281,9 @@ Ditemukan pas testing Fase 11: modul Persediaan/Transaksi masih kurang lengkap b
 - [x] Landing page & dashboard baca nama/logo aplikasi dari `app_settings` (bukan hardcoded)
 
 ### 21 — Pengaturan Sekolah: Layout 2 Kolom
-- [ ] Reflow form jadi 2 kolom di desktop (identitas sekolah | kop surat & penomoran), tetap 1 kolom di mobile
+- [x] Reflow form jadi 2 kolom di desktop (identitas sekolah | kop surat & penomoran), tetap 1 kolom di mobile
 
 ### 22 — Landing Page v2
-- [ ] Desain ulang dari nol: hero, fitur, ajakan coba gratis, section donasi
+- [x] Desain ulang dari nol: hero, fitur, ajakan coba gratis, section donasi
 
 Detail command tiap fase (composer require spesifik, artisan make:model, dst) akan saya tulis lengkap pas kita mulai fase itu.

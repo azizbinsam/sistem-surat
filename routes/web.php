@@ -5,7 +5,12 @@ use Livewire\Volt\Volt;
 
 Route::get('/', function () {
     return view('welcome', [
-        'paketList' => \App\Models\PaketSubscription::orderBy('harga')->get(),
+        // PaketSubscription (model harga lama) sudah nggak dipakai di landing page sejak
+        // pivot v1.1 ke gratis + donasi (Fase 22). Modelnya tetap ada karena masih dipakai
+        // Subscription & Filament resource, cuma sudah nggak relevan buat ditampilkan publik.
+        'rekeningDonasi' => \Illuminate\Support\Facades\Schema::hasTable('rekening_donasi')
+            ? \App\Models\RekeningDonasi::orderBy('urutan')->get()
+            : collect(),
     ]);
 })->name('welcome');
 
