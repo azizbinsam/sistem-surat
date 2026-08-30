@@ -32,16 +32,16 @@ class TahunAnggaranScopingTest extends TestCase
             'tempat' => 'Rangkasbitung',
         ]);
 
-        // Sekolah::booted() otomatis bikin tahun anggaran 2026 (is_aktif=true)
+        // Sekolah::booted() otomatis bikin tahun anggaran 2026 (status aktif)
         $this->ta2026 = $this->sekolah->tahunAnggaran()->first();
 
         // Simulasikan superadmin "buka tahun anggaran baru" 2027 (Fase 20 nanti)
-        $this->ta2026->update(['is_aktif' => false]);
+        $this->ta2026->update(['status' => 'hold']);
         $this->ta2027 = TahunAnggaran::create([
             'sekolah_id' => $this->sekolah->id,
             'tahun' => 2027,
             'nomor_urut_terakhir' => 0,
-            'is_aktif' => true,
+            'status' => 'aktif',
         ]);
 
         $this->user = User::factory()->create(['sekolah_id' => $this->sekolah->id]);
@@ -59,7 +59,7 @@ class TahunAnggaranScopingTest extends TestCase
         ]);
 
         $this->assertSame(1, $sekolahBaru->tahunAnggaran()->count());
-        $this->assertTrue($sekolahBaru->tahunAnggaran()->first()->is_aktif);
+        $this->assertSame('aktif', $sekolahBaru->tahunAnggaran()->first()->status);
     }
 
     public function test_create_master_barang_otomatis_masuk_tahun_anggaran_aktif(): void
@@ -114,7 +114,7 @@ class TahunAnggaranScopingTest extends TestCase
 
         $this->actingAs($this->user);
 
-        // Defaultnya lihat 2027 (is_aktif) -> data 2026 nggak kelihatan
+        // Defaultnya lihat 2027 (status aktif) -> data 2026 nggak kelihatan
         $this->assertCount(0, MasterBarang::where('sekolah_id', $this->sekolah->id)->get());
 
         // Pindah ke 2026 lewat resolver (simulasi dropdown Fase 16)

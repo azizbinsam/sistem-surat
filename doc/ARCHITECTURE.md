@@ -1,283 +1,386 @@
-# ARCHITECTURE.md — Skema Database & Struktur Sistem
+# PRD — Sistem Generate Surat NPB/SPB/SPPB (SaaS)
 
-Pendamping `PRD.md`. Baca ini bareng-bareng sebelum mulai bikin migration.
-
----
-
-## 1. Prinsip Desain
-
-- **Normalized**, bukan wide-column. Setiap transaksi punya banyak item → relasi hasMany, bukan kolom `barang_1, barang_2, ... barang_7`.
-- **Multi-tenant**: hampir semua tabel punya `sekolah_id` (kecuali tabel global seperti `users`, `paket_subscription`).
-- **Soft delete** dipakai di tabel master (barang, pegawai) supaya data historis surat lama tidak rusak kalau ada yang dihapus.
+Status: v1.0 — hasil diskusi awal, siap masuk fase development
+Terakhir update: 21 Agustus 2026
+Developer: Aziz (Delix Studio)
 
 ---
 
-## 2. Daftar Tabel
+## 1. Latar Belakang & Tujuan
 
-### `users`
-Akun login (admin & sekolah pakai tabel yang sama, dibedakan kolom `role`).
-| Kolom | Tipe | Ket |
-|---|---|---|
-| id | bigint PK | |
-| name | string | |
-| email | string unique | |
-| google_id | string nullable | dari OAuth |
-| role | enum(admin, sekolah) | |
-| sekolah_id | FK → sekolah, nullable | null kalau role=admin |
-| password | string nullable | wajib diisi kalau daftar via email, null kalau daftar via Google saja |
-| email_verified_at | timestamp nullable | untuk verifikasi email (khusus daftar via email+password) |
+Sekolah (SDN) rutin bikin 3 surat berurutan tiap ada permintaan/pengeluaran barang persediaan:
+**NPB (Nota Permintaan Barang) → SPB (Surat Permintaan Barang) → SPPB (Surat Perintah Penyaluran Barang)**.
 
-### `sekolah`
-Data profil sekolah (1 row = 1 tenant).
-| Kolom | Tipe | Ket |
-|---|---|---|
-| id | bigint PK | |
-| nama_sekolah | string | |
-| nama_pemerintah | string | |
-| alamat | text | |
-| tempat | string | dipakai di surat |
-| kontak_wa | string | |
-| email | string | |
-| logo_sekolah | string nullable | path storage |
-| logo_kabupaten | string nullable | path storage |
-| kode_sekolah | string **unique** | dipakai di format nomor surat, misal `SDN3RKST` — unique secara sistem sejak v1.1 (§6.2), 1 NPSN cuma boleh 1 akun |
-| nama_dinas | string | untuk kop surat, misal "DINAS PENDIDIKAN" |
-| nama_korwil | string nullable | untuk kop surat, misal "KORWIL SATUAN PENDIDIKAN" — nullable karena tidak semua daerah pakai |
-| jabatan_resmi_sppb | string | default "Kuasa Pengguna Barang" — label jabatan yang dicetak di TTD SPPB, terpisah dari `pegawai.jabatan` milik Kepala Sekolah |
-| kode_klasifikasi_surat | string | contoh: "000.2.3.1" — prefix konstan di semua nomor surat, kemungkinan kode klasifikasi anggaran, beda per sekolah/daerah |
-| format_kode_npb | string | label pojok kanan atas surat NPB, misal "FORMAT II.I.6" |
-| format_kode_spb | string | label pojok kanan atas surat SPB, misal "FORMAT II.I.7" |
-| format_kode_sppb | string | label pojok kanan atas surat SPPB, misal "FORMAT II.I.8" |
+Prosesnya saat ini manual (isi Word/Excel satu-satu). Tujuan produk ini: sekolah tinggal **upload data Excel**, sistem otomatis:
+1. Transpose data mentah jadi transaksi terstruktur
+2. Hitung sisa persediaan otomatis (ledger masuk-keluar)
+3. Generate 3 surat sekaligus (PDF/Word), siap cetak & tanda tangan
 
-### `paket_subscription`
-| Kolom | Tipe | Ket |
-|---|---|---|
-| id | bigint PK | |
-| nama_paket | string | misal "Bulanan", "Tahunan" |
-| harga | decimal | |
-| durasi_hari | int | |
-
-### `subscriptions`
-| Kolom | Tipe | Ket |
-|---|---|---|
-| id | bigint PK | |
-| sekolah_id | FK | |
-| paket_id | FK | |
-| status | enum(aktif, hold, expired) | |
-| tanggal_mulai | date | |
-| tanggal_berakhir | date | |
-| fersaku_payment_id | string nullable | reference/ID transaksi dari Fersaku (dulu direncanakan `midtrans_order_id`, berubah karena ganti payment gateway) |
-| dibuat_manual_oleh | FK users, nullable | kalau admin extend manual |
-
-### `master_barang`
-| Kolom | Tipe | Ket |
-|---|---|---|
-| id | bigint PK | |
-| sekolah_id | FK | |
-| kode_barang | string | |
-| nama_barang | string | |
-| kategori | string nullable | |
-| satuan_default | string | |
-| keperluan_default | text nullable | auto-suggest saat isi excel/form transaksi keluar |
-| spesifikasi_default | string nullable | auto-suggest/fallback kalau spesifikasi di transaksi keluar dikosongkan |
-
-### `barang_alias`
-Mapping nama-di-excel → master_barang, biar auto-match makin akurat tiap upload.
-| Kolom | Tipe | Ket |
-|---|---|---|
-| id | bigint PK | |
-| sekolah_id | FK | |
-| master_barang_id | FK | |
-| nama_alias | string | teks persis dari excel |
-| spesifikasi_alias | string nullable | |
-
-### `barang_masuk` (header BPU)
-| Kolom | Tipe | Ket |
-|---|---|---|
-| id | bigint PK | |
-| sekolah_id | FK | |
-| nomor_bpu | string | |
-| tanggal | date | |
-
-### `barang_masuk_item`
-| Kolom | Tipe | Ket |
-|---|---|---|
-| id | bigint PK | |
-| barang_masuk_id | FK | |
-| master_barang_id | FK | |
-| spesifikasi | string | |
-| satuan | string | |
-| jumlah | int | |
-
-### `koreksi_stok`
-| Kolom | Tipe | Ket |
-|---|---|---|
-| id | bigint PK | |
-| sekolah_id | FK | |
-| master_barang_id | FK | |
-| tanggal | date | |
-| jumlah | int | boleh negatif |
-| alasan | text | wajib |
-| user_id | FK users | siapa yang input |
-
-### `pegawai`
-| Kolom | Tipe | Ket |
-|---|---|---|
-| id | bigint PK | |
-| sekolah_id | FK | |
-| nama | string | |
-| nip | string | |
-| jabatan | string | |
-| kategori | enum(kepala_sekolah, pengurus_barang_pembantu, guru, tendik) | |
-| ttd_path | string nullable | |
-
-### `transaksi` (header, = 1 bundel NPB+SPB+SPPB)
-| Kolom | Tipe | Ket |
-|---|---|---|
-| id | bigint PK | |
-| sekolah_id | FK | |
-| nomor_referensi_asal | string | dari kolom excel, buat traceability |
-| nomor_npb | string nullable | terisi saat digenerate |
-| nomor_spb | string nullable | |
-| nomor_sppb | string nullable | |
-| tanggal_npb | date | |
-| tanggal_spb | date nullable | |
-| tanggal_sppb | date nullable | |
-| pihak_peminta_id | FK pegawai, nullable | null = belum di-mapping |
-| status | enum(draft, siap_generate, selesai) | |
-
-### `transaksi_item`
-| Kolom | Tipe | Ket |
-|---|---|---|
-| id | bigint PK | |
-| transaksi_id | FK | |
-| master_barang_id | FK | |
-| spesifikasi | string **nullable** | fallback ke `master_barang.nama_barang` (atau `spesifikasi_default`) kalau kosong saat generate surat |
-| jumlah | int | |
-| satuan | string | |
-| keperluan | string | |
+Model bisnis: **SaaS subscription** per sekolah (bulanan/tahunan), dijual oleh Delix Studio.
 
 ---
 
-## 3. Relasi Ringkas
+## 2. Tech Stack
 
+| Layer | Pilihan | Catatan |
+|---|---|---|
+| Backend | Laravel 11 | |
+| Frontend interaktif | Livewire 3 + Alpine.js | |
+| Styling | Tailwind 3 | Tema hitam-putih, simpel |
+| Admin panel | Filament 3 | Manage user, subscription, paket harga |
+| Panel sekolah | Custom Livewire + Pines UI | Fleksibel untuk UX spesifik (mapping ajax, generate surat) |
+| Database | MySQL | Lokal: Laragon. Produksi: shared hosting (cPanel) |
+| Auth | Laravel Breeze/Fortify (email+password) + Laravel Socialite (Google OAuth) | Dua opsi login, sekolah bebas pilih |
+| Payment | Fersaku (QRIS) | Platform pembuatan halaman pembayaran QRIS Indonesia — lebih simpel dari Midtrans (1 endpoint API + webhook), fee 1%+Rp500 s/d 3% per transaksi tergantung tier. Detail teknis integrasi (auth header, format signature webhook) menyusul saat dokumentasi API-nya bisa diakses lagi |
+| Import Excel | maatwebsite/excel (PhpSpreadsheet) | |
+| Export PDF | barryvdh/laravel-dompdf | |
+| Export Word | phpoffice/phpword | |
+| Version control | Git + GitHub | |
+| Deployment | Shared hosting (cPanel) | |
+
+---
+
+## 3. User Roles
+
+- **Admin** (internal Delix Studio) — kelola platform & subscription semua sekolah
+- **Sekolah** (subscriber) — 1 akun = 1 sekolah, kelola data & generate surat sendiri
+
+---
+
+## 4. Fitur — Admin (Filament 3)
+
+- **Manage User**: list, edit, promote jadi admin
+- **Manage Subscription**: lihat status tiap sekolah, extend/hold/cancel manual
+- **Manage Paket Harga**: CRUD paket (nama, harga, durasi — misal Bulanan/Tahunan)
+- **Manage Status Subscription**: perpanjang, hold (suspend akses), expired (otomatis dari sistem atau manual override)
+
+---
+
+## 5. Fitur — Sekolah
+
+### 5.1 Dashboard
+Ringkasan: jumlah surat digenerate bulan ini, status subscription, alert stok barang tertentu (opsional v2).
+
+### 5.2 Master Barang *(setup awal, opsional)*
+- CRUD manual: Kode Barang, Nama, Kategori, Satuan Default
+- Import bulk via Excel (opsional, lihat §7.1)
+- Alias otomatis kesimpen tiap kali sekolah mapping "Nama Barang" baru dari upload BPU/transaksi ke kode master yang sudah ada
+
+### 5.3 Penerimaan Barang (BPU)
+- **CRUD lengkap**: tambah manual (form, boleh isi tanggal kapan saja — bukan cuma hari ini), edit, delete — semua langsung mempengaruhi ledger stok secara real-time (bukan angka statis, ledger dihitung ulang tiap kali dari data yang ada)
+- **Tambah manual**: 1 form bisa isi banyak item sekaligus (dynamic row), field: Nomor BPU, Tanggal, lalu per item: Barang (pilih dari Master Barang), Spesifikasi, Satuan, Jumlah
+- **Upload Excel** (template §7.2) — alur sama seperti sebelumnya: 1 Nomor BPU = 1 transaksi penerimaan, auto-match Nama Barang + Spesifikasi → Kode Barang master, mapping manual + alias kalau belum dikenal
+- **Delete/Edit warning**: kalau mengurangi/menghapus BPU bikin ada transaksi keluar yang jadi "minus stok" (transaksi itu udah terlanjur pakai barang yang sekarang berkurang), sistem kasih peringatan jelas sebelum konfirmasi
+
+### 5.4 Transaksi Keluar (Permintaan Barang)
+- **CRUD lengkap**: tambah manual, edit, delete — sama seperti BPU, tanggal bebas, langsung pengaruh ke ledger
+- **Tambah manual**: form dinamis (Nomor Referensi, Tanggal, pihak peminta via combobox search, item-item: Barang, Spesifikasi *(opsional — fallback ke nama barang kalau kosong)*, Jumlah, Satuan, Keperluan)
+- **Upload Excel** (template §7.3, kolom diperbarui — lihat §7.3):
+  - Sistem transpose: grouping baris berdasarkan **Nomor Referensi** → jadi transaksi (1 = 1 bundel surat NPB+SPB+SPPB)
+  - Mapping barang yang belum dikenal (sama seperti BPU)
+  - **Auto-mapping pihak peminta**: kalau kolom Nama + Jabatan Peminta di Excel cocok persis (kombinasi keduanya) dengan data Pegawai, otomatis ke-assign. Kalau nggak cocok, dikosongkan + sistem tampilkan notifikasi jelas ("N transaksi belum bisa dipetakan otomatis: No. Ref ...") — bisa dilengkapi manual
+  - **Nomor NPB opsional** di Excel: kalau diisi (buat import data historis yang udah py nomor asli dari kertas), sistem pakai nomor itu apa adanya, skip auto-generate. Kalau kosong, tetap auto-generate seperti biasa (lihat §8.1)
+  - Validasi: kalau dalam 1 Nomor Referensi ada Nama Peminta yang beda-beda antar baris, sistem warning (indikasi salah ketik)
+- **Halaman daftar transaksi** — ada **tab filter: Draft / Selesai / Semua**:
+  - **Draft**: mapping pihak yang meminta (combobox search, ajax auto-save), preview sisa persediaan real-time per item, tombol Generate (per transaksi atau bulk)
+  - **Selesai**: tombol Edit (update data, nomor surat TIDAK berubah karena udah "resmi" terbit), Delete, Download Ulang
+- **Warning stok tidak cukup**: baik pas create/edit manual maupun pas mapping dari draft, kalau jumlah diminta > sisa stok, tampilkan warning jelas + tombol langsung ke halaman edit BPU barang terkait
+
+### 5.5 Persediaan / Stok
+- Halaman ringkasan sisa stok per kode barang (Total Masuk + Total Koreksi − Total Keluar, dihitung konsisten berdasarkan cutoff tanggal — lihat §8.2)
+- History ledger per kode barang (tabel: tanggal, jenis (masuk/keluar/koreksi), referensi (no. BPU/no. transaksi), jumlah, saldo berjalan)
+- **Koreksi Stok**: form tambah entri koreksi (+/-), wajib isi alasan. **Scope dipersempit** — sekarang khusus buat kasus selisih fisik nyata (barang rusak, hilang, hasil stok opname) yang nggak ada dokumen sumbernya (bukan BPU maupun transaksi keluar). Kasus salah input data sekarang diperbaiki langsung lewat Edit di BPU/Transaksi Keluar (§5.3, §5.4), bukan lewat entri koreksi lagi. Tetap bisa diakses semua akun sekolah.
+
+### 5.6 CRUD Pegawai
+- Manual CRUD: Nama, Jabatan, NIP, Kategori (Kepala Sekolah / Pengurus Barang Pembantu / Guru / Tendik), foto Tanda Tangan (upload gambar)
+- Bulk import Excel (template §7.4) untuk data teks (Nama, Jabatan, NIP, Kategori) — tanda tangan tetap upload manual per pegawai setelah import
+
+### 5.7 Pengaturan Sekolah
+
+**Identitas umum**
+- Logo sekolah, logo kabupaten
+- Kontak WA, email
+- Update password
+
+**Kop Surat** *(dipakai persis untuk cetak header semua surat, sesuai referensi docx)*
+- Kode Sekolah (contoh: `SDN3RKST`) — dipakai di format nomor surat
+- Kode Klasifikasi Surat (contoh: `000.2.3.1`) — prefix konstan di semua nomor surat
+- Nama Pemerintah Daerah (contoh: "PEMERINTAH KABUPATEN LEBAK")
+- Nama Dinas (contoh: "DINAS PENDIDIKAN")
+- Nama Korwil/UPTD (contoh: "KORWIL SATUAN PENDIDIKAN") — opsional, kosongkan kalau daerah lain tidak pakai struktur ini
+- Nama Sekolah (contoh: "SEKOLAH DASAR NEGERI 3 RANGKASBITUNG TIMUR")
+- Alamat Sekolah (dicetak di bawah nama sekolah di kop)
+- Tempat (dipakai di baris tanggal tanda tangan, misal "Rangkasbitung" — beda dari alamat lengkap)
+
+**Jabatan Resmi Penandatangan SPPB** *(khusus SPPB, label jabatan yang dicetak bukan jabatan sehari-hari Kepala Sekolah — melainkan sebutan resmi jabatannya dalam konteks pengelolaan barang)*
+- Jabatan Resmi Penandatangan SPPB (contoh: "Kuasa Pengguna Barang" — defaultnya ini, tapi bisa disesuaikan per sekolah/daerah)
+
+**Penomoran Surat**
+- Nomor Urut Terakhir — editable, buat sekolah yang baru pindah dari pencatatan manual dan mau lanjut nomor dari yang terakhir dipakai di kertas (misal isi manual jadi 44, transaksi baru berikutnya otomatis mulai dari nomor 45)
+
+**Kode Format Surat** *(label pojok kanan atas tiap jenis surat, mengikuti regulasi daerah masing-masing — dikonfirmasi ada di file `7__NPB_SPB_SPPB.docx` sebagai text box terpisah)*
+- Format Kode NPB (contoh: "FORMAT II.I.6")
+- Format Kode SPB (contoh: "FORMAT II.I.7")
+- Format Kode SPPB (contoh: "FORMAT II.I.8")
+
+### 5.8 Info Subscription
+- Status aktif/expired, tanggal berakhir, riwayat pembayaran, tombol perpanjang (redirect ke halaman pembayaran Fersaku)
+
+---
+
+## 6. Struktur Dokumen Surat (per bundel transaksi)
+
+### 6.0 Kop Surat (sama persis di ketiga jenis surat, kode format beda per jenis)
+Rata tengah, urutan dari atas — dikonfirmasi dari struktur asli `7__NPB_SPB_SPPB.docx` (label kode format di pojok kanan atas ternyata ada, tersimpan sebagai text box terpisah di file docx-nya, bukan paragraf biasa):
 ```
-sekolah 1---N users
-sekolah 1---N subscriptions
-sekolah 1---N master_barang
-sekolah 1---N pegawai
-sekolah 1---N barang_masuk
-sekolah 1---N transaksi
-
-master_barang 1---N barang_alias
-master_barang 1---N barang_masuk_item
-master_barang 1---N koreksi_stok
-master_barang 1---N transaksi_item
-
-barang_masuk 1---N barang_masuk_item
-
-transaksi 1---N transaksi_item
-transaksi N---1 pegawai (pihak_peminta)
+[Format Kode surat ini]                    ← pojok kanan atas, dari Pengaturan §5.7
+[Nama Pemerintah Daerah]
+[Nama Dinas]
+[Nama Korwil/UPTD]                         ← skip kalau kosong
+[NAMA SEKOLAH]
+[Alamat Sekolah]
 ```
+Semua field diambil dari Pengaturan Sekolah (§5.7), bukan hardcode — supaya template ini reusable untuk sekolah/kabupaten lain.
 
-## 4. Query Kunci — Hitung Sisa Persediaan
+### 6.0.1 Jabatan Penandatangan (per jenis surat)
+Dikonfirmasi dari struktur asli, jabatan yang dicetak di blok tanda tangan **tidak selalu sama** dengan field `jabatan` pegawai apa adanya:
+- **NPB**: jabatan = `pegawai.jabatan` milik Pihak yang Meminta (dinamis, sesuai siapa yang mengajukan)
+- **SPB**: jabatan = `pegawai.jabatan` milik Pengurus Barang Pembantu (tetap, contoh: "Pengurus Barang Pembantu")
+- **SPPB**: jabatan = **bukan** `pegawai.jabatan` Kepala Sekolah, melainkan field terpisah **"Jabatan Resmi Penandatangan SPPB"** dari Pengaturan Sekolah (§5.7, default "Kuasa Pengguna Barang") — walau namanya sama dengan Kepala Sekolah, sebutan jabatannya beda karena konteks pengelolaan barang milik negara
 
-**Bug ditemukan pas testing** (Fase 14): versi awal cuma nge-filter tanggal di `totalKeluar`, sedangkan `totalMasuk` dan `totalKoreksi` dihitung tanpa batas tanggal sama sekali — bikin salah hitung kalau ada transaksi lama yang di-generate telat, sementara udah ada BPU/koreksi baru yang tercatat belakangan. Versi yang benar, ketiganya pakai cutoff tanggal yang sama:
+### 6.1 Nota Permintaan Barang (NPB)
+- Nomor surat (auto-generate, lihat §8.1)
+- Pihak yang meminta (nama+jabatan, dari mapping)
+- Tabel item: No urut, Spesifikasi Nama Barang, Jumlah, Satuan, Keperluan, Ket. (kosong)
+- Tempat, Tanggal (dari kolom "Tanggal NPB" hasil transpose)
+- Blok tanda tangan: Jabatan, TTD (image), Nama, NIP (pihak peminta)
 
-```php
-// Pseudocode, dijalankan per master_barang_id, dengan cutoff ke transaksi tertentu
-$cutoffTanggal = $transaksi->tanggal_npb;
-$cutoffCreatedAt = $transaksi->created_at; // tie-breaker lintas tabel buat tanggal yang sama
+### 6.2 Surat Permintaan Barang (SPB)
+- Nomor surat (turunan dari nomor NPB, lihat §8.1)
+- Referensi: Nomor & Tanggal NPB, Pihak yang meminta
+- Tabel item: No, Kode Barang, Nama Barang, Spesifikasi, Pengajuan Permintaan (Jml+Satuan), **Informasi Sisa Barang Persediaan** (Jml+Satuan, dari ledger — §8.2), Usulan Pengajuan Persetujuan (Jml+Satuan), Keperluan, Ket.
+- Tempat, Tanggal
+- Blok tanda tangan: Pengurus Barang Pembantu (tetap di semua SPB sekolah tsb)
 
-$totalMasuk = BarangMasukItem::where('master_barang_id', $id)
-    ->whereHas('barangMasuk', fn ($q) => $q->beforeCutoff('tanggal', $cutoffTanggal, $cutoffCreatedAt))
-    ->sum('jumlah');
-
-$totalKoreksi = KoreksiStok::where('master_barang_id', $id)
-    ->beforeCutoff('tanggal', $cutoffTanggal, $cutoffCreatedAt)
-    ->sum('jumlah');
-
-$totalKeluarSebelumIni = TransaksiItem::where('master_barang_id', $id)
-    ->whereHas('transaksi', fn ($q) => $q->beforeCutoff('tanggal_npb', $cutoffTanggal, $cutoffCreatedAt)
-        ->where('id', '!=', $transaksi->id))
-    ->sum('jumlah');
-
-$sisa = $totalMasuk + $totalKoreksi - $totalKeluarSebelumIni;
-```
-`beforeCutoff` = scope/helper: `tanggal < cutoffTanggal OR (tanggal = cutoffTanggal AND created_at < cutoffCreatedAt)`. Dipakai konsisten di 3 tempat itu, bukan cuma di query keluar.
-
-Untuk "sisa stok saat ini" (halaman ringkasan, bukan konteks 1 transaksi spesifik), cutoff-nya `now()` — nggak exclude apapun.
-
-Detail implementasi (index database, caching kalau perlu) dibahas pas masuk fase coding.
+### 6.3 Surat Perintah Penyaluran Barang (SPPB)
+- Nomor surat (turunan dari nomor SPB)
+- Referensi: Nomor & Tanggal SPB
+- Tabel item: No, Kode Barang, Nama Barang, Spesifikasi, Satuan, Persetujuan Pengeluaran Barang, Ket.
+- Tempat, Tanggal
+- Blok tanda tangan: Kepala Sekolah (tetap di semua SPPB sekolah tsb)
 
 ---
 
-## 5. Catatan untuk Migration
+## 7. Template Excel
 
-Urutan bikin migration (biar foreign key nggak error):
-1. `sekolah`
-2. `users` (butuh sekolah_id)
-3. `paket_subscription`
-4. `subscriptions`
-5. `master_barang`
-6. `barang_alias`
-7. `barang_masuk`
-8. `barang_masuk_item`
-9. `koreksi_stok`
-10. `pegawai`
-11. `transaksi`
-12. `transaksi_item`
+### 7.1 Master Barang *(opsional)*
+| Kolom | Wajib | Keterangan |
+|---|---|---|
+| Kode Barang | Ya | Unik |
+| Nama Barang | Ya | |
+| Kategori | Tidak | |
+| Satuan Default | Ya | |
+| Spesifikasi Default | Tidak | Auto-suggest saat isi excel transaksi keluar |
 
-Detail command & kode migration akan digenerate step-by-step pas eksekusi Fase 2 di `TASKS.md`.
+### 7.2 Penerimaan Barang (BPU)
+| Kolom | Wajib | Keterangan |
+|---|---|---|
+| Tanggal | Ya | |
+| Nomor BPU | Ya | Kunci grouping 1 transaksi penerimaan |
+| Nama Barang | Ya | |
+| Spesifikasi | Ya | |
+| Satuan | Ya | |
+| Jumlah | Ya | |
+
+### 7.3 Data Transaksi Keluar
+| Kolom | Wajib | Keterangan |
+|---|---|---|
+| Tanggal | Ya | |
+| Nomor Referensi | Ya | Kunci grouping — sama nomor = 1 bundel surat |
+| Nama Barang | Ya | |
+| Spesifikasi | **Tidak** | Fallback ke Nama Barang master kalau kosong |
+| Jumlah | Ya | |
+| Satuan | Ya | |
+| Keperluan | Ya | |
+| Nama Peminta | Tidak | Buat auto-mapping pihak yang meminta (kombinasi dengan Jabatan Peminta) |
+| Jabatan Peminta | Tidak | Wajib diisi bareng Nama Peminta kalau mau auto-mapping jalan |
+| Nomor NPB | Tidak | Khusus import data historis yang udah punya nomor surat asli dari kertas — kalau diisi, sistem pakai nomor ini apa adanya (skip auto-generate) |
+
+### 7.4 Data Pegawai
+| Kolom | Wajib | Keterangan |
+|---|---|---|
+| Nama | Ya | |
+| Jabatan | Ya | |
+| NIP | Ya | |
+| Kategori Pegawai | Ya | Kepala Sekolah / Pengurus Barang Pembantu / Guru / Tendik |
+
+Semua template ini disediakan sebagai file `.xlsx` yang bisa di-download langsung dari tombol di masing-masing halaman upload.
 
 ---
 
-## 6. Perubahan Skema v1.1 (Tahun Anggaran, Admin Panel)
+## 8. Business Rules Kritis
 
-### `tahun_anggaran` (tabel baru)
-Unit pemisah data utama sejak v1.1 — 1 sekolah punya banyak baris (2026, 2027, dst).
-| Kolom | Tipe | Ket |
-|---|---|---|
-| id | bigint PK | |
-| sekolah_id | FK → sekolah | |
-| tahun | integer | misal 2026 |
-| nomor_urut_terakhir | integer, default 0 | **pindah dari `sekolah`** — sekarang reset per tahun anggaran, bukan seumur hidup sekolah |
-| is_aktif | boolean, default true | penanda tahun anggaran mana yang jadi default kalau session belum pilih apa-apa (biasanya yang terbaru) |
+### 8.1 Penomoran Surat — hybrid (auto-generate atau override manual)
+- **Default (auto-generate)**: sama seperti sebelumnya
+  - **NPB**: `{kode_klasifikasi_surat}/{urut 4-digit}/NPB-{KODE_SEKOLAH}/{bulan-romawi}/{tahun}`
+    contoh: `000.2.3.1/0043/NPB-SDN3RKST/IV/2026`
+  - **SPB**: sama seperti NPB, tapi nomor urut ditambah `.1`
+  - **SPPB**: sama seperti NPB, tapi nomor urut ditambah `.2`
+  - `{kode_klasifikasi_surat}` dan `{KODE_SEKOLAH}` dari Pengaturan Sekolah — bukan hardcode
+  - **Global increment** — nomor urut TIDAK reset tiap bulan, lanjut terus dari `nomor_urut_terakhir` di Pengaturan Sekolah (§5.7 — bisa diedit manual buat lanjutin dari pencatatan kertas lama)
+  - Bulan romawi & tahun mengikuti `tanggal_npb` transaksi tersebut (bukan tanggal surat digenerate)
+- **Override via Excel (§7.3, kolom "Nomor NPB")**: khusus import data historis yang udah punya nomor asli dari kertas — kalau kolom ini diisi, sistem pakai nomor itu apa adanya untuk NPB, dan tetap turunkan SPB/SPPB dari situ (`.1`/`.2`) — **skip** auto-generate. Nomor historis ini tidak mempengaruhi/menaikkan counter `nomor_urut_terakhir` (biar nggak bentrok sama urutan auto-generate ke depannya)
 
-Constraint: unique(`sekolah_id`, `tahun`).
+### 8.2 Ledger Persediaan (Sisa Stok)
+```
+Sisa Persediaan (kode barang X, per tanggal cutoff T) =
+  SUM(jumlah masuk dari BPU, kode X, tanggal <= T)
+  + SUM(jumlah koreksi, kode X, tanggal <= T)
+  − SUM(jumlah keluar dari transaksi, kode X, tanggal <= T, tapi TIDAK termasuk transaksi T sendiri)
+```
+- **Penting**: ketiga komponen (masuk, koreksi, keluar) HARUS pakai cutoff tanggal yang konsisten — kalau nggak, transaksi lama yang di-generate telat bisa salah hitung karena ikut kehitung barang masuk/koreksi yang sebenarnya baru tercatat belakangan
+- Tie-breaker buat data di tanggal yang sama (termasuk lintas tabel, misal BPU vs Transaksi) pakai `created_at` (kapan data itu benar-benar dientry ke sistem), bukan `id` — soalnya urutan `id` antar tabel yang beda nggak mencerminkan urutan waktu asli
+- Dihitung **per kode barang**, sepanjang riwayat (tidak di-scope per tahun anggaran)
+- **Tidak ada** input "saldo awal" manual — total berasal murni dari akumulasi BPU
+- Koreksi stok = entri ledger terpisah (bukan overwrite angka), wajib ada alasan → audit trail terjaga. **Scope dipersempit** ke kasus fisik nyata (rusak/hilang/opname) — bukan lagi buat menambal salah input, karena sekarang BPU & Transaksi Keluar punya Edit langsung
+- Barang tidak akan bisa diminta (muncul di NPB) kalau belum pernah ada BPU untuk kode itu — divalidasi saat create/edit/import, dengan warning + link cepat ke halaman edit BPU terkait
 
-Baris baru di tabel ini HANYA dibuat lewat aksi superadmin "Buka Tahun Anggaran Baru" di Panel Admin (Fase 20) — sekali aksi bikin 1 baris untuk setiap sekolah sekaligus. Sekolah tidak punya endpoint/UI buat insert baris baru sendiri.
+### 8.3 Matching Kode Barang
+- Import BPU & Transaksi Keluar pakai **Nama Barang** (bukan kode) sebagai kunci pencarian ke Master Barang
+- Kalau tidak ketemu exact match → sekolah mapping manual sekali → tersimpan sebagai alias (tabel `barang_alias`) supaya upload berikutnya auto-match
 
-### Kolom baru `tahun_anggaran_id` (FK → tahun_anggaran, cascadeOnDelete) ditambahkan ke:
-- `master_barang`
-- `pegawai`
-- `barang_masuk`
-- `transaksi`
-- `koreksi_stok`
+### 8.4 Matching Pihak Peminta (Transaksi Keluar)
+- Kunci matching: kombinasi **Nama + Jabatan** (persis, bukan sebagian) ke data Pegawai milik sekolah itu — kombinasi dipakai (bukan nama doang) buat menghindari salah orang kalau ada nama pegawai yang kebetulan sama
+- Cocok → `pihak_peminta_id` otomatis ke-assign, tetap bisa diubah manual
+- Tidak cocok → dikosongkan, sistem tampilkan notifikasi transaksi mana aja yang gagal auto-mapping, dilengkapi manual (combobox search di halaman draft)
+- Validasi tambahan: kalau dalam 1 Nomor Referensi, Nama Peminta beda-beda antar baris → warning (indikasi salah ketik di excel)
 
-Semua query di tabel-tabel ini WAJIB di-scope by `tahun_anggaran_id` (tahun anggaran aktif dari session), selain scope `sekolah_id` yang sudah ada. `barang_alias` tetap ikut `sekolah_id` saja (bukan per tahun — alias nama barang ke kode barang itu independen dari tahun anggaran, tapi tetap perlu dicek `master_barang_id`-nya valid di tahun anggaran aktif saat dipakai).
+---
 
-### Kolom yang DIHAPUS dari `sekolah`
-- `nomor_urut_terakhir` → pindah ke `tahun_anggaran.nomor_urut_terakhir` (lihat di atas).
+## 9. Non-Functional Requirements
 
-### `sekolah.kode_sekolah` jadi **unique**
-Proteksi "1 sekolah 1 akun" (§6.2) — kode_sekolah dipakai sebagai representasi NPSN.
+- **Keamanan**: field sensitif (role, status subscription) TIDAK masuk `$fillable` — assignment manual di controller/action. NIP, TTD upload divalidasi tipe file & ukuran.
+- **Multi-tenancy**: 1 akun sekolah = 1 tenant, semua query di-scope by `sekolah_id` (pakai Laravel global scope atau middleware).
+- **Performa import**: Excel besar (>500 baris) diproses via Laravel Queue (job async), bukan blocking request, kasih progress bar/notifikasi selesai.
+- **File storage**: logo, TTD, hasil PDF/Word disimpan di `storage/app/public`, symlink ke `public/storage`.
 
-### `app_settings` (tabel baru — dikelola dari Panel Admin, bukan per-sekolah)
-Baris tunggal (singleton), bukan per-tenant.
-| Kolom | Tipe | Ket |
-|---|---|---|
-| id | bigint PK | |
-| nama_aplikasi | string | ditampilkan di landing page & dashboard |
-| logo_aplikasi | string nullable | path storage |
+---
 
-### `rekening_donasi` (tabel baru — dikelola dari Panel Admin, bisa lebih dari satu baris)
-| Kolom | Tipe | Ket |
-|---|---|---|
-| id | bigint PK | |
-| nama_bank | string | |
-| nomor_rekening | string | |
-| atas_nama | string | |
-| foto | string nullable | path storage — bisa foto buku rekening atau QRIS |
-| urutan | integer, default 0 | buat kontrol urutan tampil |
+## 10. Out of Scope (v1)
 
+- Multi-user per sekolah (role internal sekolah selain 1 akun utama)
+- Notifikasi WA otomatis
+- Approval workflow berjenjang (misal butuh approve dulu sebelum generate)
+- Laporan/rekap keuangan BKU penuh (fokus v1 cuma generate surat + ledger stok sederhana)
+
+---
+
+## 11. Progress Tracking
+
+Lihat `TASKS.md` untuk checklist detail per fase development.
+Kalau sesi chat terputus, gunakan `CONTINUATION_PROMPT.md`.
+
+---
+
+## 12. Perubahan Arah Produk (v1.1)
+
+Hasil diskusi setelah Fase 14 selesai. Model bisnis, struktur data, dan beberapa UI berubah cukup fundamental — subscription resmi ditunda, aplikasi jalan gratis dulu dengan donasi opsional, dan konsep **Tahun Anggaran** jadi unit pemisah data utama.
+
+### 12.1 Model Bisnis: Gratis + Donasi (menggantikan sementara Fase 9)
+
+- Semua fitur bisa dipakai gratis tanpa subscription aktif. Middleware cek subscription (Fase 9) tetap ditunda — tidak ada gate apa pun.
+- Tombol/info donasi muncul di landing page dan dashboard.
+- Data rekening donasi (bank, nomor rekening, atas nama, foto bukti rekening — bisa lebih dari satu) diinput lewat **Panel Admin** (lihat §12.5), bukan per-sekolah, karena ini milik platform/Delix Studio.
+
+### 12.2 Satu Sekolah, Satu Akun
+
+- **NPSN (kolom `kode_sekolah`) harus unik secara sistem.** Sekolah yang NPSN-nya sudah dipakai akun lain tidak bisa mendaftarkan/melengkapi profil dengan NPSN yang sama.
+- Ini murni proteksi duplikasi sekolah (bukan multi-user per sekolah — itu tetap Out of Scope v1, lihat §10).
+
+### 12.3 Tahun Anggaran
+
+Konsep baru: setiap sekolah punya banyak "Tahun Anggaran" (2026, 2027, dst), dan sebagian besar data transaksional terpisah total antar tahun anggaran — supaya pergantian guru/kepala sekolah antar tahun tidak saling mempengaruhi data anggaran.
+
+**Data yang IKUT terpisah per Tahun Anggaran:**
+- Master Barang (katalog kode barang diinput ulang tiap tahun)
+- Pegawai
+- Barang Masuk (BPU) + itemnya
+- Transaksi Keluar + itemnya
+- Koreksi Stok
+- Nomor urut surat (`nomor_urut_terakhir`) — reset ke 0 di tahun anggaran baru
+
+**Data yang TETAP di level Sekolah (tidak ikut terpisah):**
+- Identitas sekolah: nama, alamat, kode klasifikasi surat, jabatan resmi SPPB, logo, kontak
+- Akun user (login)
+
+**Alur:**
+- Dropdown "Tahun Anggaran: 2026 ▾" di pojok kanan dashboard — isinya tahun anggaran yang sudah dibuka oleh superadmin, sekolah tinggal pilih/pindah. **Tidak ada opsi bikin tahun anggaran baru di sisi sekolah.**
+- Pembukaan tahun anggaran baru dilakukan **superadmin dari Panel Admin** (§12.5), sekali aksi berlaku untuk **semua sekolah sekaligus** — konsisten dengan kalender anggaran pemerintah yang memang serentak, bukan keputusan per sekolah. Begitu dibuka, setiap sekolah otomatis dapat 1 baris tahun anggaran baru berstatus **Hold** (mulai dari nol, `nomor_urut_terakhir` = 0) — lihat §12.3.1 buat kenapa nggak langsung aktif.
+- Tahun anggaran baru = mulai dari nol (tidak ada carry-over saldo otomatis dari tahun sebelumnya — sekolah input manual kalau mau catat saldo awal, sesuai praktik opname BMN/BMD).
+- **Data tahun anggaran manapun tetap bisa diedit**, tapi HANYA saat tahun anggaran itu sedang aktif/dipilih (tidak bisa edit data 2026 sambil browsing di tahun anggaran 2027 — harus pindah dulu).
+- Migrasi data existing: dibuatkan 1 tahun anggaran default per sekolah yang sudah ada, semua data lama otomatis di-assign ke situ (tidak ada data yang hilang).
+
+#### 12.3.1 Status Hold/Aktif — revisi v1.1.1
+
+Ditemukan pas Fase 20: kalau "buka tahun anggaran baru" langsung nge-aktifin tahun itu buat semua sekolah, admin nggak punya cara buat rollback kalau ternyata itu keputusan yang salah/kepencet (misalnya tahun anggaran baru dibuka terlalu cepat, padahal tahun ajaran/anggaran fisiknya belum ganti). Makanya kolom `tahun_anggaran.is_aktif` (boolean) diganti jadi `status` (enum: `hold` / `aktif`), dengan pemisahan 2 langkah:
+
+1. **"Buka Tahun Anggaran Baru"** cuma bikin barisnya dengan status **Hold** untuk semua sekolah — TIDAK menyentuh tahun yang lagi aktif sama sekali. Sekolah tetap jalan normal di tahun anggaran lama, nggak ada dampak operasional apa pun cuma dari "buka".
+2. **"Aktifkan untuk Semua Sekolah"** — aksi terpisah, per tahun, yang baru beneran memindahkan status `aktif` dari tahun lama ke tahun yang dipilih (lintas semua sekolah). Dipanggil pas tahun anggaran itu emang udah waktunya jalan.
+
+Panel Admin (§12.5) sekarang juga nampilin **daftar semua tahun anggaran yang pernah dibuka** (bukan cuma tombol buka doang), dengan badge status per tahun. **Rollback** kalau salah aktifin tinggal klik "Aktifkan" lagi di tahun yang seharusnya — nggak perlu ubah database manual.
+
+### 12.4 Navigasi: Dropdown Profil & Tahun Anggaran
+
+- Pojok kanan atas dashboard: dropdown Tahun Anggaran, dan terpisah, dropdown Profil (isinya: link ke Pengaturan Sekolah, dan tombol Logout). Menggantikan link Profil/Logout yang sebelumnya ada di tempat lain.
+
+### 12.5 Panel Admin Platform (bukan per-sekolah)
+
+Menggunakan Filament panel yang sudah ada (role `admin`). Menu baru:
+- **Tahun Anggaran**: tombol "Buka Tahun Anggaran Baru" — sekali klik, bikin 1 baris tahun anggaran baru untuk **semua sekolah sekaligus** (bukan per-sekolah manual). Ini satu-satunya cara tahun anggaran baru terbentuk; sekolah tidak punya kewenangan bikin sendiri (§12.3).
+- **Pengaturan Aplikasi**: nama aplikasi, logo aplikasi (dipakai di landing page & dashboard, menggantikan branding hardcoded).
+- **Rekening Donasi**: CRUD banyak rekening (bank, nomor rekening, atas nama, foto bukti/QRIS).
+
+### 12.6 Dashboard v2 (interaktif, Chart.js)
+
+Chart yang ditampilkan (disepakati di diskusi):
+- Tren Barang Masuk vs Transaksi Keluar per bulan (line chart)
+- Top 5 barang paling sering keluar (bar chart)
+- Jumlah transaksi Draft vs Selesai (donut/pie atau angka besar)
+- Barang dengan sisa stok menipis (list/alert, bukan chart)
+- Section info donasi (nomor rekening dari §12.5, ditampilkan ke sekolah sebagai ajakan opsional)
+
+### 12.7 Transaksi Keluar: Hapus Sistem Tab
+
+- Sistem tab Draft/Selesai/Semua (Fase 14.4) **dihapus**, diganti satu daftar tunggal dengan badge status per baris (badge-nya sendiri sudah ada dari Fase 14.4, tinggal dicopot tab-nya).
+- Form Edit sudah mendukung status draft maupun selesai sejak Fase 14.4 — tidak ada perubahan logic, cuma UI-nya yang disederhanakan.
+- Fitur yang ada di Barang Masuk (sort, filter, pagination rapi) disamakan tampilannya ke Transaksi Keluar juga.
+- Rapikan juga halaman Upload Transaksi Keluar (step upload & review), konsisten sama upload Master Barang/Barang Masuk (§12.8).
+
+### 12.8 Master Barang, Barang Masuk & Pegawai: Rapikan Tampilan
+
+- Tambah sort (per kolom) dan filter (kategori/kata kunci) di halaman index Master Barang, Barang Masuk, dan Pegawai.
+- Ganti pagination Laravel default (ada style `dark:` bawaan yang bikin kelihatan gelap padahal tema app-nya terang) dengan view pagination custom yang konsisten sama desain app — berlaku di ketiganya.
+- Rapikan halaman Upload (step upload & review) Master Barang, Barang Masuk, dan Transaksi Keluar biar visualnya konsisten sama halaman lain.
+
+### 12.9 Pengaturan Sekolah: 2 Kolom di Desktop
+
+- Reflow form Pengaturan Sekolah jadi 2 kolom di layar desktop (tetap 1 kolom di mobile), dikelompokkan biar lebih rapi (identitas sekolah | kop surat & penomoran, misalnya).
+
+### 12.10 Landing Page v2
+
+- Didesain ulang dari nol (bukan revisi kecil), fokus: penjelasan produk, ajakan coba gratis, section donasi.
+
+---
+
+## 13. Urutan Eksekusi v1.1
+
+Dipecah jadi beberapa fase kecil di `TASKS.md`, urutan (fondasi dulu karena banyak fase bergantung ke Tahun Anggaran):
+
+- **Fase 15** — Tahun Anggaran (fondasi data)
+- **Fase 16** — NPSN unik + dropdown Profil/Tahun Anggaran
+- **Fase 17** — Rapikan Master Barang, Barang Masuk & Pegawai
+- **Fase 18** — Transaksi Keluar: hapus tab, samakan fitur ke Barang Masuk
+- **Fase 19** — Dashboard v2 (Chart.js) + info donasi
+- **Fase 20** — Panel Admin (buka tahun anggaran baru, nama app, logo app, rekening donasi)
+- **Fase 21** — Pengaturan Sekolah 2 kolom
+- **Fase 22** — Landing page v2

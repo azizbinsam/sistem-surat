@@ -27,13 +27,14 @@ class PenomoranHybridTest extends TestCase
         $this->sekolah = Sekolah::create([
             'nama_sekolah' => 'SDN 3 Rangkasbitung Timur',
             'kode_sekolah' => 'SDN3RKST',
+            'npsn' => '20601936',
             'nama_pemerintah' => 'PEMKAB LEBAK',
             'nama_dinas' => 'DISDIK',
             'alamat' => 'Jl. Contoh',
             'tempat' => 'Rangkasbitung',
         ]);
 
-        // Sekolah::booted() otomatis bikin 1 tahun anggaran default (is_aktif) — pakai itu,
+        // Sekolah::booted() otomatis bikin 1 tahun anggaran default (status aktif) — pakai itu,
         // tinggal set nomor_urut_terakhir awalnya ke 5 buat skenario test.
         $this->tahunAnggaran = $this->sekolah->tahunAnggaran()->first();
         $this->tahunAnggaran->update(['nomor_urut_terakhir' => 5]);

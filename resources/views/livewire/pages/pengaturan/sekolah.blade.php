@@ -19,6 +19,7 @@ new #[Layout('layouts.app')] class extends Component {
 
     public string $nama_sekolah = '';
     public string $kode_sekolah = '';
+    public string $npsn = '';
     public string $nama_pemerintah = '';
     public string $nama_dinas = '';
     public string $nama_korwil = '';
@@ -36,11 +37,6 @@ new #[Layout('layouts.app')] class extends Component {
     public string $password_baru = '';
     public string $password_baru_confirmation = '';
 
-    // Akun login pengguna (User) — beda dengan $email di atas yang merupakan
-    // email kontak Sekolah. Dipisah nama variabelnya biar nggak ketuker.
-    public string $nama_pengguna = '';
-    public string $email_pengguna = '';
-
     public function mount(TahunAnggaranResolver $resolver): void
     {
         $this->sekolah = auth()->user()->sekolah;
@@ -48,6 +44,7 @@ new #[Layout('layouts.app')] class extends Component {
 
         $this->nama_sekolah = $this->sekolah->nama_sekolah;
         $this->kode_sekolah = $this->sekolah->kode_sekolah;
+        $this->npsn = $this->sekolah->npsn ?? '';
         $this->nama_pemerintah = $this->sekolah->nama_pemerintah;
         $this->nama_dinas = $this->sekolah->nama_dinas;
         $this->nama_korwil = $this->sekolah->nama_korwil ?? '';
@@ -58,37 +55,6 @@ new #[Layout('layouts.app')] class extends Component {
         $this->jabatan_resmi_sppb = $this->sekolah->jabatan_resmi_sppb;
         $this->kode_klasifikasi_surat = $this->sekolah->kode_klasifikasi_surat;
         $this->nomor_urut_terakhir = $this->tahunAnggaranAktif->nomor_urut_terakhir;
-
-        $this->nama_pengguna = auth()->user()->name;
-        $this->email_pengguna = auth()->user()->email;
-    }
-
-    public function simpanAkun(): void
-    {
-        $user = auth()->user();
-
-        $validated = $this->validate(
-            [
-                'nama_pengguna' => ['required', 'string', 'max:255'],
-                'email_pengguna' => ['required', 'string', 'lowercase', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user->id)],
-            ],
-            [],
-            ['nama_pengguna' => 'nama', 'email_pengguna' => 'email'],
-        );
-
-        $user->name = $validated['nama_pengguna'];
-
-        // Kalau email login berubah, tandai belum terverifikasi lagi — konsisten
-        // dengan behavior form profil bawaan Breeze sebelumnya, meski verifikasi
-        // email sendiri belum di-enforce di app ini (User belum implements
-        // MustVerifyEmail).
-        if ($user->email !== $validated['email_pengguna']) {
-            $user->email_verified_at = null;
-        }
-        $user->email = $validated['email_pengguna'];
-        $user->save();
-
-        session()->flash('success_akun', 'Profil akun berhasil diperbarui.');
     }
 
     public function simpanProfil(): void
@@ -96,7 +62,8 @@ new #[Layout('layouts.app')] class extends Component {
         $validated = $this->validate(
             [
                 'nama_sekolah' => ['required', 'string', 'max:255'],
-                'kode_sekolah' => ['required', 'string', 'max:50', Rule::unique('sekolah', 'kode_sekolah')->ignore($this->sekolah->id)],
+                'kode_sekolah' => ['required', 'string', 'max:50'],
+                'npsn' => ['required', 'string', 'max:20', Rule::unique('sekolah', 'npsn')->ignore($this->sekolah->id)],
                 'nama_pemerintah' => ['required', 'string', 'max:255'],
                 'nama_dinas' => ['required', 'string', 'max:255'],
                 'nama_korwil' => ['nullable', 'string', 'max:255'],
@@ -111,7 +78,7 @@ new #[Layout('layouts.app')] class extends Component {
                 'logo_kabupaten_baru' => ['nullable', 'image', 'max:2048'],
             ],
             [
-                'kode_sekolah.unique' => 'Kode Sekolah ini sudah dipakai akun lain. Satu sekolah cuma boleh punya satu akun.',
+                'npsn.unique' => 'NPSN ini sudah dipakai akun lain. Satu sekolah cuma boleh punya satu akun.',
             ],
         );
 
@@ -183,11 +150,6 @@ new #[Layout('layouts.app')] class extends Component {
                     :class="activeSection === 'penomoran' ? 'bg-emerald-50 text-emerald-700' : 'text-zinc-600 hover:bg-zinc-50'">
                     Penomoran Surat
                 </a>
-                <a href="#akun" @click="activeSection = 'akun'"
-                    class="block px-3 py-2 rounded-lg text-sm font-medium transition-colors"
-                    :class="activeSection === 'akun' ? 'bg-emerald-50 text-emerald-700' : 'text-zinc-600 hover:bg-zinc-50'">
-                    Akun Saya
-                </a>
                 <a href="#keamanan" @click="activeSection = 'keamanan'"
                     class="block px-3 py-2 rounded-lg text-sm font-medium transition-colors"
                     :class="activeSection === 'keamanan' ? 'bg-emerald-50 text-emerald-700' : 'text-zinc-600 hover:bg-zinc-50'">
@@ -231,11 +193,22 @@ new #[Layout('layouts.app')] class extends Component {
                                 <x-input-error :messages="$errors->get('nama_sekolah')" class="mt-2" />
                             </div>
                             <div>
-                                <x-input-label for="kode_sekolah" value="Kode Sekolah" />
-                                <x-text-input wire:model="kode_sekolah" id="kode_sekolah" class="block mt-1 w-full"
-                                    type="text" />
-                                <x-input-error :messages="$errors->get('kode_sekolah')" class="mt-2" />
+                                <x-input-label for="npsn" value="NPSN" />
+                                <x-text-input wire:model="npsn" id="npsn" class="block mt-1 w-full" type="text"
+                                    inputmode="numeric" />
+                                <p class="mt-1 text-xs text-zinc-500">Nomor Pokok Sekolah Nasional — identitas resmi,
+                                    unik per sekolah.</p>
+                                <x-input-error :messages="$errors->get('npsn')" class="mt-2" />
                             </div>
+                        </div>
+
+                        <div>
+                            <x-input-label for="kode_sekolah" value="Kode Sekolah" />
+                            <x-text-input wire:model="kode_sekolah" id="kode_sekolah" class="block mt-1 w-full sm:w-1/2"
+                                type="text" />
+                            <p class="mt-1 text-xs text-zinc-500">Singkatan yang dipakai di format nomor surat. Boleh
+                                sama dengan sekolah lain.</p>
+                            <x-input-error :messages="$errors->get('kode_sekolah')" class="mt-2" />
                         </div>
 
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -413,51 +386,6 @@ new #[Layout('layouts.app')] class extends Component {
                     <x-primary-button>Simpan Perubahan</x-primary-button>
                 </div>
             </form>
-
-            {{-- Akun Saya --}}
-            <section id="akun" class="bg-white rounded-xl border border-zinc-100 shadow-sm p-6 scroll-mt-6">
-                <h2 class="text-base font-semibold text-zinc-900">Akun Saya</h2>
-                <p class="text-xs text-zinc-500 mt-0.5 mb-5">Nama dan email ini dipakai untuk login ke akun kamu —
-                    beda dengan kontak sekolah di atas.</p>
-
-                @if (session('success_akun'))
-                    <div x-data="{ show: true }" x-show="show" x-transition
-                        class="flex items-center justify-between gap-3 mb-4 p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-sm">
-                        <span class="flex items-center gap-2">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
-                                viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                                stroke-linecap="round" stroke-linejoin="round" class="shrink-0">
-                                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-                                <polyline points="22 4 12 14.01 9 11.01"></polyline>
-                            </svg>
-                            {{ session('success_akun') }}
-                        </span>
-                        <button @click="show = false" type="button"
-                            class="text-emerald-600 hover:text-emerald-800">✕</button>
-                    </div>
-                @endif
-
-                <form wire:submit="simpanAkun" class="space-y-4">
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div>
-                            <x-input-label for="nama_pengguna" value="Nama" />
-                            <x-text-input wire:model="nama_pengguna" id="nama_pengguna" class="block mt-1 w-full"
-                                type="text" autocomplete="name" />
-                            <x-input-error :messages="$errors->get('nama_pengguna')" class="mt-2" />
-                        </div>
-                        <div>
-                            <x-input-label for="email_pengguna" value="Email Login" />
-                            <x-text-input wire:model="email_pengguna" id="email_pengguna" class="block mt-1 w-full"
-                                type="email" autocomplete="username" />
-                            <x-input-error :messages="$errors->get('email_pengguna')" class="mt-2" />
-                        </div>
-                    </div>
-
-                    <div class="flex justify-end">
-                        <x-primary-button>Simpan Perubahan</x-primary-button>
-                    </div>
-                </form>
-            </section>
 
             {{-- Keamanan --}}
             <section id="keamanan" class="bg-white rounded-xl border border-zinc-100 shadow-sm p-6 scroll-mt-6">

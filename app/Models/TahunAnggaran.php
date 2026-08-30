@@ -15,11 +15,7 @@ class TahunAnggaran extends Model
         'sekolah_id',
         'tahun',
         'nomor_urut_terakhir',
-        'is_aktif',
-    ];
-
-    protected $casts = [
-        'is_aktif' => 'boolean',
+        'status',
     ];
 
     public function sekolah()

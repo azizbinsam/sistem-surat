@@ -17,7 +17,7 @@ use Illuminate\Database\Eloquent\Builder;
  *
  * Kalau nggak ada user login (dipanggil dari test/seeder/console tanpa auth), scope
  * di-skip (nggak ada konteks buat resolve "aktif yang mana") — fallback creating()
- * tetap jalan asal ada baris `is_aktif = true` buat sekolah itu.
+ * tetap jalan asal ada baris `status = aktif` buat sekolah itu.
  */
 trait BelongsToTahunAnggaran
 {
@@ -43,9 +43,9 @@ trait BelongsToTahunAnggaran
             if (auth()->check() && auth()->user()->sekolah_id === $model->sekolah_id) {
                 $tahunAnggaran = app(TahunAnggaranResolver::class)->aktif(auth()->user()->sekolah);
             } else {
-                // Konteks tanpa auth (test/seeder) — ambil langsung is_aktif=true buat sekolah itu.
+                // Konteks tanpa auth (test/seeder) — ambil langsung status=aktif buat sekolah itu.
                 $tahunAnggaran = TahunAnggaran::where('sekolah_id', $model->sekolah_id)
-                    ->where('is_aktif', true)
+                    ->where('status', 'aktif')
                     ->latest('tahun')
                     ->first();
             }

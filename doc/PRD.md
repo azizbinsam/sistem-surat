@@ -315,10 +315,19 @@ Konsep baru: setiap sekolah punya banyak "Tahun Anggaran" (2026, 2027, dst), dan
 
 **Alur:**
 - Dropdown "Tahun Anggaran: 2026 ▾" di pojok kanan dashboard — isinya tahun anggaran yang sudah dibuka oleh superadmin, sekolah tinggal pilih/pindah. **Tidak ada opsi bikin tahun anggaran baru di sisi sekolah.**
-- Pembukaan tahun anggaran baru dilakukan **superadmin dari Panel Admin** (§12.5), sekali aksi berlaku untuk **semua sekolah sekaligus** — konsisten dengan kalender anggaran pemerintah yang memang serentak, bukan keputusan per sekolah. Begitu dibuka, setiap sekolah otomatis dapat 1 baris tahun anggaran baru (mulai dari nol, `nomor_urut_terakhir` = 0).
+- Pembukaan tahun anggaran baru dilakukan **superadmin dari Panel Admin** (§12.5), sekali aksi berlaku untuk **semua sekolah sekaligus** — konsisten dengan kalender anggaran pemerintah yang memang serentak, bukan keputusan per sekolah. Begitu dibuka, setiap sekolah otomatis dapat 1 baris tahun anggaran baru berstatus **Hold** (mulai dari nol, `nomor_urut_terakhir` = 0) — lihat §12.3.1 buat kenapa nggak langsung aktif.
 - Tahun anggaran baru = mulai dari nol (tidak ada carry-over saldo otomatis dari tahun sebelumnya — sekolah input manual kalau mau catat saldo awal, sesuai praktik opname BMN/BMD).
 - **Data tahun anggaran manapun tetap bisa diedit**, tapi HANYA saat tahun anggaran itu sedang aktif/dipilih (tidak bisa edit data 2026 sambil browsing di tahun anggaran 2027 — harus pindah dulu).
 - Migrasi data existing: dibuatkan 1 tahun anggaran default per sekolah yang sudah ada, semua data lama otomatis di-assign ke situ (tidak ada data yang hilang).
+
+#### 12.3.1 Status Hold/Aktif — revisi v1.1.1
+
+Ditemukan pas Fase 20: kalau "buka tahun anggaran baru" langsung nge-aktifin tahun itu buat semua sekolah, admin nggak punya cara buat rollback kalau ternyata itu keputusan yang salah/kepencet (misalnya tahun anggaran baru dibuka terlalu cepat, padahal tahun ajaran/anggaran fisiknya belum ganti). Makanya kolom `tahun_anggaran.is_aktif` (boolean) diganti jadi `status` (enum: `hold` / `aktif`), dengan pemisahan 2 langkah:
+
+1. **"Buka Tahun Anggaran Baru"** cuma bikin barisnya dengan status **Hold** untuk semua sekolah — TIDAK menyentuh tahun yang lagi aktif sama sekali. Sekolah tetap jalan normal di tahun anggaran lama, nggak ada dampak operasional apa pun cuma dari "buka".
+2. **"Aktifkan untuk Semua Sekolah"** — aksi terpisah, per tahun, yang baru beneran memindahkan status `aktif` dari tahun lama ke tahun yang dipilih (lintas semua sekolah). Dipanggil pas tahun anggaran itu emang udah waktunya jalan.
+
+Panel Admin (§12.5) sekarang juga nampilin **daftar semua tahun anggaran yang pernah dibuka** (bukan cuma tombol buka doang), dengan badge status per tahun. **Rollback** kalau salah aktifin tinggal klik "Aktifkan" lagi di tahun yang seharusnya — nggak perlu ubah database manual.
 
 ### 12.4 Navigasi: Dropdown Profil & Tahun Anggaran
 

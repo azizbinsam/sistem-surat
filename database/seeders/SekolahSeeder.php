@@ -16,6 +16,7 @@ class SekolahSeeder extends Seeder
         Sekolah::create([
             'nama_sekolah' => 'SEKOLAH DASAR NEGERI 3 RANGKASBITUNG TIMUR',
             'kode_sekolah' => 'SDN3RKST',
+            'npsn' => '20601936',
             'nama_pemerintah' => 'PEMERINTAH KABUPATEN LEBAK',
             'nama_dinas' => 'DINAS PENDIDIKAN',
             'nama_korwil' => 'KORWIL SATUAN PENDIDIKAN',

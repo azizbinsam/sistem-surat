@@ -8,6 +8,7 @@ use Livewire\Volt\Component;
 new #[Layout('layouts.app')] class extends Component {
     public string $nama_sekolah = '';
     public string $kode_sekolah = '';
+    public string $npsn = '';
     public string $nama_pemerintah = '';
     public string $nama_dinas = '';
     public string $nama_korwil = '';
@@ -19,7 +20,8 @@ new #[Layout('layouts.app')] class extends Component {
         $validated = $this->validate(
             [
                 'nama_sekolah' => ['required', 'string', 'max:255'],
-                'kode_sekolah' => ['required', 'string', 'max:50', 'unique:sekolah,kode_sekolah'],
+                'kode_sekolah' => ['required', 'string', 'max:50'],
+                'npsn' => ['required', 'string', 'max:20', 'unique:sekolah,npsn'],
                 'nama_pemerintah' => ['required', 'string', 'max:255'],
                 'nama_dinas' => ['required', 'string', 'max:255'],
                 'nama_korwil' => ['nullable', 'string', 'max:255'],
@@ -27,7 +29,7 @@ new #[Layout('layouts.app')] class extends Component {
                 'tempat' => ['required', 'string', 'max:100'],
             ],
             [
-                'kode_sekolah.unique' => 'Kode Sekolah ini sudah terdaftar dengan akun lain. Satu sekolah cuma boleh punya satu akun — kalau ini sekolahmu, hubungi admin buat bantuan akses.',
+                'npsn.unique' => 'NPSN ini sudah terdaftar dengan akun lain. Satu sekolah cuma boleh punya satu akun — kalau ini sekolahmu, hubungi admin buat bantuan akses.',
             ],
         );
 
@@ -83,6 +85,21 @@ new #[Layout('layouts.app')] class extends Component {
                         <x-input-error :messages="$errors->get('nama_sekolah')" class="mt-1.5" />
                     </div>
 
+                    {{-- NPSN --}}
+                    <div>
+                        <x-input-label for="npsn" value="NPSN" />
+
+                        <x-text-input wire:model="npsn" id="npsn" type="text" class="mt-1.5 block w-full"
+                            placeholder="Contoh: 20601936" autocomplete="off" inputmode="numeric" />
+
+                        <p class="mt-1.5 text-xs text-zinc-500">
+                            Nomor Pokok Sekolah Nasional — identitas resmi sekolah, unik dan beda-beda untuk
+                            tiap sekolah.
+                        </p>
+
+                        <x-input-error :messages="$errors->get('npsn')" class="mt-1.5" />
+                    </div>
+
                     {{-- Kode Sekolah --}}
                     <div>
                         <x-input-label for="kode_sekolah" value="Kode Sekolah" />
@@ -93,7 +110,7 @@ new #[Layout('layouts.app')] class extends Component {
                             autocomplete="off" />
 
                         <p class="mt-1.5 text-xs text-zinc-500">
-                            Kode unik untuk mengidentifikasi sekolah Anda.
+                            Singkatan yang dipakai di format nomor surat. Boleh sama dengan sekolah lain.
                         </p>
 
                         <x-input-error :messages="$errors->get('kode_sekolah')" class="mt-1.5" />

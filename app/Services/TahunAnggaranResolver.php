@@ -9,7 +9,7 @@ use App\Models\TahunAnggaran;
  * Tunggal sumber kebenaran buat "tahun anggaran mana yang lagi aktif/dipilih" (PRD §12.3-12.4).
  *
  * Session cuma nyimpen ID pilihan user (biar bisa pindah-pindah tanpa reload penuh);
- * fallback-nya selalu baris `is_aktif = true` milik sekolah itu kalau session kosong
+ * fallback-nya selalu baris `status = aktif` milik sekolah itu kalau session kosong
  * atau nunjuk ke tahun anggaran yang bukan miliknya (proteksi tenant).
  */
 class TahunAnggaranResolver
@@ -39,7 +39,7 @@ class TahunAnggaranResolver
         }
 
         return TahunAnggaran::where('sekolah_id', $sekolah->id)
-            ->where('is_aktif', true)
+            ->where('status', 'aktif')
             ->latest('tahun')
             ->first();
     }

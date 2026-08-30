@@ -280,6 +280,13 @@ Ditemukan pas testing Fase 11: modul Persediaan/Transaksi masih kurang lengkap b
 - [x] Filament resource: Rekening Donasi (CRUD, upload foto bukti/QRIS)
 - [x] Landing page & dashboard baca nama/logo aplikasi dari `app_settings` (bukan hardcoded)
 
+### 20.1 — Revisi: Status Hold/Aktif Tahun Anggaran (lihat PRD §12.3.1)
+- [x] Migration: ganti `tahun_anggaran.is_aktif` (boolean) jadi `status` enum('hold','aktif')
+- [x] "Buka Tahun Anggaran Baru" cuma bikin status Hold, TIDAK auto-aktifin (biar nggak ganggu operasional sekolah yang lagi jalan)
+- [x] Aksi baru "Aktifkan untuk Semua Sekolah" per tahun — terpisah dari "buka", ini yang beneran mindahin status aktif
+- [x] Halaman admin nampilin daftar/ringkasan semua tahun anggaran yang pernah dibuka + badge status
+- [x] Rollback: aktifin tahun lama lagi kalau kepencet salah aktifin tahun yang belum waktunya
+
 ### 21 — Pengaturan Sekolah: Layout 2 Kolom
 - [x] Reflow form jadi 2 kolom di desktop (identitas sekolah | kop surat & penomoran), tetap 1 kolom di mobile
 

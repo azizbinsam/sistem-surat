@@ -19,9 +19,20 @@ class KelolaTahunAnggaran extends Page
 
     protected static string $view = 'filament.pages.kelola-tahun-anggaran';
 
-    public function getTahunTerbaru(): ?int
+    /**
+     * Ringkasan per tahun (lintas semua sekolah) — ini yang ditampilin sebagai daftar
+     * di halaman, biar admin bisa lihat riwayat tahun anggaran yang pernah dibuka
+     * dan status "aktif untuk berapa sekolah" per tahunnya.
+     */
+    public function getRingkasanTahun()
     {
-        return TahunAnggaran::max('tahun');
+        return TahunAnggaran::selectRaw('tahun')
+            ->selectRaw("SUM(CASE WHEN status = 'aktif' THEN 1 ELSE 0 END) as jumlah_aktif")
+            ->selectRaw("SUM(CASE WHEN status = 'hold' THEN 1 ELSE 0 END) as jumlah_hold")
+            ->selectRaw('COUNT(*) as jumlah_sekolah')
+            ->groupBy('tahun')
+            ->orderByDesc('tahun')
+            ->get();
     }
 
     public function getJumlahSekolah(): int
@@ -31,7 +42,7 @@ class KelolaTahunAnggaran extends Page
 
     public function getHeaderActions(): array
     {
-        $tahunBaru = ($this->getTahunTerbaru() ?? (now()->year - 1)) + 1;
+        $tahunBaru = (TahunAnggaran::max('tahun') ?? (now()->year - 1)) + 1;
 
         return [
             Action::make('bukaTahunAnggaranBaru')
@@ -41,7 +52,7 @@ class KelolaTahunAnggaran extends Page
                 ->requiresConfirmation()
                 ->modalHeading("Buka Tahun Anggaran {$tahunBaru} untuk SEMUA sekolah?")
                 ->modalDescription(
-                    "Setiap sekolah ({$this->getJumlahSekolah()} sekolah) akan otomatis dapat 1 tahun anggaran baru ({$tahunBaru}), mulai dari nol (nomor urut surat reset ke 0, master barang & pegawai kosong). Data tahun anggaran lama TETAP AMAN dan tetap bisa diakses/diedit dengan pindah tahun anggaran. Aksi ini tidak bisa dibatalkan."
+                    "Setiap sekolah ({$this->getJumlahSekolah()} sekolah) akan otomatis dapat 1 baris tahun anggaran baru ({$tahunBaru}) dengan status HOLD — belum langsung aktif, jadi sekolah TETAP jalan di tahun anggaran yang sekarang sampai kamu aktifkan manual dari daftar di bawah. Aman diklik kapan aja, nggak akan mengganggu operasional sekolah."
                 )
                 ->modalSubmitActionLabel('Ya, Buka Sekarang')
                 ->action(fn() => $this->bukaTahunAnggaranBaru($tahunBaru)),
@@ -50,29 +61,62 @@ class KelolaTahunAnggaran extends Page
 
     public function bukaTahunAnggaranBaru(int $tahunBaru): void
     {
-        DB::transaction(function () use ($tahunBaru) {
-            Sekolah::chunk(50, function ($sekolahList) use ($tahunBaru) {
+        $jumlahDibuat = 0;
+
+        DB::transaction(function () use ($tahunBaru, &$jumlahDibuat) {
+            Sekolah::chunk(50, function ($sekolahList) use ($tahunBaru, &$jumlahDibuat) {
                 foreach ($sekolahList as $sekolah) {
-                    // Kalau tahun ini SUDAH pernah dibuka buat sekolah tertentu (mis. re-klik
-                    // nggak sengaja), skip biar nggak dobel — unique(sekolah_id, tahun) juga
-                    // udah jaga di level database, ini cuma proteksi tambahan yang rapi.
                     if ($sekolah->tahunAnggaran()->where('tahun', $tahunBaru)->exists()) {
                         continue;
                     }
 
-                    $sekolah->tahunAnggaran()->where('is_aktif', true)->update(['is_aktif' => false]);
-
+                    // Status HOLD, sengaja TIDAK menyentuh baris "aktif" yang sudah ada —
+                    // sekolah tetap jalan normal di tahun anggaran lama sampai admin
+                    // aktifkan tahun baru ini secara eksplisit lewat tombol di bawah.
                     $sekolah->tahunAnggaran()->create([
                         'tahun' => $tahunBaru,
                         'nomor_urut_terakhir' => 0,
-                        'is_aktif' => true,
+                        'status' => 'hold',
                     ]);
+                    $jumlahDibuat++;
                 }
             });
         });
 
         Notification::make()
-            ->title("Tahun Anggaran {$tahunBaru} berhasil dibuka untuk semua sekolah")
+            ->title("Tahun Anggaran {$tahunBaru} dibuka (status hold) untuk {$jumlahDibuat} sekolah")
+            ->success()
+            ->send();
+    }
+
+    /**
+     * Satu-satunya cara tahun anggaran jadi "aktif" (dipakai default sekolah) — sekaligus
+     * ini yang jadi tombol rollback: kalau nggak sengaja aktifin tahun yang salah, admin
+     * tinggal klik "Aktifkan" lagi di tahun yang seharusnya, dan status balik otomatis.
+     */
+    public function aktifkanTahun(int $tahun): void
+    {
+        $jumlahDiubah = 0;
+
+        DB::transaction(function () use ($tahun, &$jumlahDiubah) {
+            Sekolah::chunk(50, function ($sekolahList) use ($tahun, &$jumlahDiubah) {
+                foreach ($sekolahList as $sekolah) {
+                    $target = $sekolah->tahunAnggaran()->where('tahun', $tahun)->first();
+
+                    if (!$target || $target->status === 'aktif') {
+                        continue;
+                    }
+
+                    // Maksimal 1 baris "aktif" per sekolah — yang lama otomatis turun jadi hold.
+                    $sekolah->tahunAnggaran()->where('status', 'aktif')->update(['status' => 'hold']);
+                    $target->update(['status' => 'aktif']);
+                    $jumlahDiubah++;
+                }
+            });
+        });
+
+        Notification::make()
+            ->title("Tahun Anggaran {$tahun} sekarang aktif untuk {$jumlahDiubah} sekolah")
             ->success()
             ->send();
     }

@@ -15,6 +15,7 @@ class Sekolah extends Model
     protected $fillable = [
         'nama_sekolah',
         'kode_sekolah',
+        'npsn',
         'logo_sekolah',
         'logo_kabupaten',
         'kontak_wa',
@@ -43,7 +44,7 @@ class Sekolah extends Model
                 $sekolah->tahunAnggaran()->create([
                     'tahun' => now()->year,
                     'nomor_urut_terakhir' => 0,
-                    'is_aktif' => true,
+                    'status' => 'aktif',
                 ]);
             }
         });

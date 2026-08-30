@@ -28,7 +28,7 @@ class PanelAdminFase20Test extends TestCase
 
     // ===== Tahun Anggaran =====
 
-    public function test_buka_tahun_anggaran_baru_bikin_baris_baru_untuk_semua_sekolah(): void
+    public function test_buka_tahun_anggaran_baru_bikin_baris_hold_untuk_semua_sekolah_tanpa_ganggu_yang_aktif(): void
     {
         $sekolahA = Sekolah::create([
             'nama_sekolah' => 'SDN A', 'kode_sekolah' => 'SDNA',
@@ -39,7 +39,7 @@ class PanelAdminFase20Test extends TestCase
             'nama_pemerintah' => 'X', 'nama_dinas' => 'Y', 'alamat' => 'Z', 'tempat' => 'W',
         ]);
 
-        // Sekolah::booted() otomatis bikin tahun anggaran 2026 (is_aktif) buat keduanya
+        // Sekolah::booted() otomatis bikin tahun anggaran 2026 (status aktif) buat keduanya
         $ta2026A = $sekolahA->tahunAnggaran()->first();
         $ta2026B = $sekolahB->tahunAnggaran()->first();
 
@@ -47,14 +47,17 @@ class PanelAdminFase20Test extends TestCase
             ->test(KelolaTahunAnggaran::class)
             ->callAction('bukaTahunAnggaranBaru');
 
-        // Kedua sekolah dapat tahun anggaran baru (2027), yang lama jadi nggak aktif
-        $this->assertSame(2027, $sekolahA->tahunAnggaran()->where('is_aktif', true)->first()->tahun);
-        $this->assertSame(2027, $sekolahB->tahunAnggaran()->where('is_aktif', true)->first()->tahun);
-        $this->assertFalse($ta2026A->fresh()->is_aktif);
-        $this->assertFalse($ta2026B->fresh()->is_aktif);
+        // 2027 dibuat dengan status HOLD -- BUKAN langsung aktif
+        $ta2027A = $sekolahA->tahunAnggaran()->where('tahun', 2027)->first();
+        $this->assertSame('hold', $ta2027A->status);
 
-        // Tahun anggaran lama TETAP ADA (nggak dihapus)
-        $this->assertDatabaseHas('tahun_anggaran', ['id' => $ta2026A->id, 'tahun' => 2026]);
+        // 2026 TETAP aktif -- sekolah nggak keganggu operasionalnya sama sekali
+        $this->assertSame('aktif', $ta2026A->fresh()->status);
+        $this->assertSame('aktif', $ta2026B->fresh()->status);
+
+        // Tapi barisnya beneran udah ada buat SEMUA sekolah
+        $this->assertDatabaseHas('tahun_anggaran', ['sekolah_id' => $sekolahA->id, 'tahun' => 2027, 'status' => 'hold']);
+        $this->assertDatabaseHas('tahun_anggaran', ['sekolah_id' => $sekolahB->id, 'tahun' => 2027, 'status' => 'hold']);
     }
 
     public function test_tahun_anggaran_baru_mulai_dari_nol(): void
@@ -69,7 +72,7 @@ class PanelAdminFase20Test extends TestCase
             ->test(KelolaTahunAnggaran::class)
             ->callAction('bukaTahunAnggaranBaru');
 
-        $taBaru = $sekolah->tahunAnggaran()->where('is_aktif', true)->first();
+        $taBaru = $sekolah->tahunAnggaran()->where('tahun', 2027)->first();
         $this->assertSame(0, $taBaru->nomor_urut_terakhir);
     }
 
@@ -85,6 +88,64 @@ class PanelAdminFase20Test extends TestCase
         $component->instance()->bukaTahunAnggaranBaru(2027); // manggil lagi manual dengan tahun sama
 
         $this->assertSame(1, $sekolah->tahunAnggaran()->where('tahun', 2027)->count());
+    }
+
+    public function test_aktifkan_tahun_menjadikan_aktif_dan_menurunkan_yang_lama_ke_hold(): void
+    {
+        $sekolah = Sekolah::create([
+            'nama_sekolah' => 'SDN A', 'kode_sekolah' => 'SDNA',
+            'nama_pemerintah' => 'X', 'nama_dinas' => 'Y', 'alamat' => 'Z', 'tempat' => 'W',
+        ]);
+        $ta2026 = $sekolah->tahunAnggaran()->first(); // status aktif (default)
+        $ta2027 = TahunAnggaran::create(['sekolah_id' => $sekolah->id, 'tahun' => 2027, 'status' => 'hold']);
+
+        Livewire::actingAs($this->admin)
+            ->test(KelolaTahunAnggaran::class)
+            ->call('aktifkanTahun', 2027);
+
+        $this->assertSame('aktif', $ta2027->fresh()->status);
+        $this->assertSame('hold', $ta2026->fresh()->status);
+    }
+
+    /**
+     * Ini skenario yang bikin fitur ini direvisi: admin nggak sengaja aktifin tahun
+     * yang salah, dan harus bisa "rollback" tanpa perlu bongkar database manual.
+     */
+    public function test_rollback_aktifin_tahun_lama_lagi_setelah_salah_aktifin_tahun_baru(): void
+    {
+        $sekolah = Sekolah::create([
+            'nama_sekolah' => 'SDN A', 'kode_sekolah' => 'SDNA',
+            'nama_pemerintah' => 'X', 'nama_dinas' => 'Y', 'alamat' => 'Z', 'tempat' => 'W',
+        ]);
+        $ta2026 = $sekolah->tahunAnggaran()->first();
+        $ta2027 = TahunAnggaran::create(['sekolah_id' => $sekolah->id, 'tahun' => 2027, 'status' => 'hold']);
+
+        $component = Livewire::actingAs($this->admin)->test(KelolaTahunAnggaran::class);
+
+        // Admin nggak sengaja aktifin 2027 padahal belum waktunya
+        $component->call('aktifkanTahun', 2027);
+        $this->assertSame('aktif', $ta2027->fresh()->status);
+        $this->assertSame('hold', $ta2026->fresh()->status);
+
+        // Sadar salah -> rollback dengan aktifin 2026 lagi
+        $component->call('aktifkanTahun', 2026);
+        $this->assertSame('aktif', $ta2026->fresh()->status);
+        $this->assertSame('hold', $ta2027->fresh()->status);
+    }
+
+    public function test_ringkasan_tahun_menampilkan_semua_tahun_yang_pernah_dibuka(): void
+    {
+        $sekolah = Sekolah::create([
+            'nama_sekolah' => 'SDN A', 'kode_sekolah' => 'SDNA',
+            'nama_pemerintah' => 'X', 'nama_dinas' => 'Y', 'alamat' => 'Z', 'tempat' => 'W',
+        ]);
+        TahunAnggaran::create(['sekolah_id' => $sekolah->id, 'tahun' => 2027, 'status' => 'hold']);
+
+        Livewire::actingAs($this->admin)
+            ->test(KelolaTahunAnggaran::class)
+            ->assertSee('2026')
+            ->assertSee('2027')
+            ->assertSee('Aktifkan untuk Semua Sekolah');
     }
 
     // ===== Pengaturan Aplikasi =====
