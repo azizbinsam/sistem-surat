@@ -109,7 +109,8 @@ class TransaksiKeluarCrudTest extends TestCase
         $this->assertSame(12, $service->sisaSaatIni($this->barang->id));
 
         Volt::actingAs($this->user)->test('pages.transaksi.index')
-            ->call('hapus', $transaksi->id);
+            ->call('mintaHapusSatuan', $transaksi->id)
+            ->call('eksekusiHapus');
 
         $this->assertDatabaseMissing('transaksi', ['id' => $transaksi->id]);
         $this->assertSame(20, $service->sisaSaatIni($this->barang->id));
@@ -134,6 +135,10 @@ class TransaksiKeluarCrudTest extends TestCase
 
         $this->expectException(\Illuminate\Database\Eloquent\ModelNotFoundException::class);
 
-        Volt::actingAs($this->user)->test('pages.transaksi.index')->call('hapus', $transaksiOrang->id);
+        // Proteksi tenant baru ke-cek di eksekusiHapus() (mintaHapusSatuan cuma nyimpen
+        // state buat modal, belum query ke DB).
+        Volt::actingAs($this->user)->test('pages.transaksi.index')
+            ->call('mintaHapusSatuan', $transaksiOrang->id)
+            ->call('eksekusiHapus');
     }
 }

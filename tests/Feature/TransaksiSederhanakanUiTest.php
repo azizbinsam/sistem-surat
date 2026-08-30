@@ -120,7 +120,7 @@ class TransaksiSederhanakanUiTest extends TestCase
 
         Volt::actingAs($this->user)->test('pages.transaksi.index')
             ->assertSeeHtml(route('transaksi.edit', $draft))
-            ->assertSeeHtml('wire:click="hapus(' . $draft->id . ')"');
+            ->assertSeeHtml('wire:click="mintaHapusSatuan(' . $draft->id . ')"');
     }
 
     public function test_selesai_juga_punya_tombol_edit_dan_hapus(): void
@@ -129,7 +129,7 @@ class TransaksiSederhanakanUiTest extends TestCase
 
         Volt::actingAs($this->user)->test('pages.transaksi.index')
             ->assertSeeHtml(route('transaksi.edit', $selesai))
-            ->assertSeeHtml('wire:click="hapus(' . $selesai->id . ')"');
+            ->assertSeeHtml('wire:click="mintaHapusSatuan(' . $selesai->id . ')"');
     }
 
     public function test_hapus_draft_langsung_dari_index_beneran_kehapus(): void
@@ -137,7 +137,8 @@ class TransaksiSederhanakanUiTest extends TestCase
         $draft = $this->buatTransaksi('draft', 'REF-DRAFT');
 
         Volt::actingAs($this->user)->test('pages.transaksi.index')
-            ->call('hapus', $draft->id);
+            ->call('mintaHapusSatuan', $draft->id)
+            ->call('eksekusiHapus');
 
         $this->assertDatabaseMissing('transaksi', ['id' => $draft->id]);
     }
