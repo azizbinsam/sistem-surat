@@ -32,7 +32,7 @@ new class extends Component {
 <div>
     @if (auth()->check() && !auth()->user()->hasVerifiedEmail() && !$tertutup)
         <div class="bg-amber-50 border-b border-amber-200 px-4 sm:px-6 lg:px-8 py-2.5">
-            <div class="flex items-center justify-between gap-3 flex-wrap max-w-7xl mx-auto">
+            <div class="flex items-center justify-center gap-3 flex-wrap max-w-7xl mx-auto">
                 <p class="text-sm text-amber-800 flex items-center gap-1.5">
                     <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none"
                         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"

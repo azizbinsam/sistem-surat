@@ -123,9 +123,9 @@ new #[Layout('layouts.app')] class extends Component {
                             </svg>
                             <p class="text-sm text-zinc-500">
                                 @if ($search)
-                                    Tidak ada barang yang cocok dengan pencarian.
+                                    Tidak ada persediaan yang cocok dengan pencarian.
                                 @else
-                                    Belum ada data barang.
+                                    Belum ada data persediaan.
                                 @endif
                             </p>
                         </td>

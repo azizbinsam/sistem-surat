@@ -309,7 +309,7 @@ new #[Layout('layouts.app')] class extends Component {
         <table class="min-w-full divide-y divide-zinc-100">
             <thead class="bg-zinc-50">
                 <tr>
-                    <th class="px-4 py-3">
+                    <th class="pl-4 pr-2 py-3 w-10">
                         <input type="checkbox" class="rounded"
                             wire:click="$set('selected', $event.target.checked ? {{ $daftarTransaksi->pluck('id') }} : [])">
                     </th>
@@ -330,7 +330,7 @@ new #[Layout('layouts.app')] class extends Component {
             <tbody class="divide-y divide-zinc-100">
                 @forelse ($daftarTransaksi as $t)
                     <tr wire:key="transaksi-{{ $t->id }}" class="hover:bg-zinc-50">
-                        <td class="px-4 py-3 text-center"><input type="checkbox" class="rounded" wire:model="selected"
+                        <td class="pl-4 pr-2 py-2"><input type="checkbox" class="rounded" wire:model="selected"
                                 value="{{ $t->id }}">
                         </td>
                         <td class="px-4 py-3 text-sm font-medium text-zinc-900">{{ $t->nomor_referensi_asal }}</td>
@@ -400,13 +400,6 @@ new #[Layout('layouts.app')] class extends Component {
                                     class="text-sm text-emerald-600 font-medium hover:underline mt-1 inline-block">+
                                     Tambah
                                     transaksi pertama</a>
-                            @endif
-                        </td>
-                        <td colspan="8" class="px-5 py-16 text-center text-sm text-zinc-500">
-                            @if ($search || $filterStatus)
-                                Tidak ada transaksi yang cocok dengan pencarian/filter.
-                            @else
-                                Belum ada data transaksi.
                             @endif
                         </td>
                     </tr>
