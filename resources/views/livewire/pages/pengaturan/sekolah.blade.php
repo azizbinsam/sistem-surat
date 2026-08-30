@@ -148,6 +148,11 @@ new #[Layout('layouts.app')] class extends Component {
 
     public function gantiPassword(): void
     {
+        // Akun yang login via Google nggak punya "password" yang pernah
+        // dipakai buat login — nggak masuk akal (dan nggak aman) buat
+        // ngasih mereka jalan ubah password di sini.
+        abort_if(auth()->user()->google_id, 403, 'Akun Google nggak bisa ubah password lewat sini.');
+
         $this->validate([
             'password_baru' => ['required', 'confirmed', 'min:8'],
         ]);
@@ -495,26 +500,45 @@ new #[Layout('layouts.app')] class extends Component {
                     </div>
                 @endif
 
-                <form wire:submit="gantiPassword" class="space-y-4">
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div>
-                            <x-input-label for="password_baru" value="Password Baru" />
-                            <x-text-input wire:model="password_baru" id="password_baru" class="block mt-1 w-full"
-                                type="password" />
-                            <x-input-error :messages="$errors->get('password_baru')" class="mt-2" />
-                        </div>
-                        <div>
-                            <x-input-label for="password_baru_confirmation" value="Konfirmasi Password Baru" />
-                            <x-text-input wire:model="password_baru_confirmation" id="password_baru_confirmation"
-                                class="block mt-1 w-full" type="password" />
-                        </div>
+                @if (auth()->user()->google_id)
+                    <div class="flex items-start gap-3 p-4 bg-zinc-50 border border-zinc-200 rounded-lg">
+                        <svg width="18" height="18" viewBox="0 0 24 24" class="shrink-0 mt-0.5">
+                            <path fill="#4285F4"
+                                d="M23.52 12.27c0-.85-.08-1.67-.22-2.45H12v4.63h6.47c-.28 1.5-1.13 2.77-2.4 3.63v3h3.89c2.28-2.1 3.56-5.2 3.56-8.81z" />
+                            <path fill="#34A853"
+                                d="M12 24c3.24 0 5.96-1.07 7.95-2.92l-3.89-3c-1.08.72-2.45 1.15-4.06 1.15-3.13 0-5.78-2.11-6.73-4.95H1.26v3.1C3.24 21.3 7.28 24 12 24z" />
+                            <path fill="#FBBC05"
+                                d="M5.27 14.28A7.2 7.2 0 0 1 4.88 12c0-.79.14-1.56.39-2.28V6.62H1.26A11.98 11.98 0 0 0 0 12c0 1.94.46 3.77 1.26 5.38l4.01-3.1z" />
+                            <path fill="#EA4335"
+                                d="M12 4.77c1.76 0 3.35.61 4.6 1.8l3.44-3.44C17.96 1.19 15.24 0 12 0 7.28 0 3.24 2.7 1.26 6.62l4.01 3.1C6.22 6.88 8.87 4.77 12 4.77z" />
+                        </svg>
+                        <p class="text-sm text-zinc-600">
+                            Kamu login pakai akun Google, jadi nggak ada password yang perlu diatur di sini.
+                            Keamanan akun kamu dikelola langsung lewat akun Google kamu.
+                        </p>
                     </div>
-                    <p class="text-xs text-zinc-500">Minimal 8 karakter.</p>
+                @else
+                    <form wire:submit="gantiPassword" class="space-y-4">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <x-input-label for="password_baru" value="Password Baru" />
+                                <x-text-input wire:model="password_baru" id="password_baru" class="block mt-1 w-full"
+                                    type="password" />
+                                <x-input-error :messages="$errors->get('password_baru')" class="mt-2" />
+                            </div>
+                            <div>
+                                <x-input-label for="password_baru_confirmation" value="Konfirmasi Password Baru" />
+                                <x-text-input wire:model="password_baru_confirmation" id="password_baru_confirmation"
+                                    class="block mt-1 w-full" type="password" />
+                            </div>
+                        </div>
+                        <p class="text-xs text-zinc-500">Minimal 8 karakter.</p>
 
-                    <div class="flex justify-end">
-                        <x-primary-button>Ubah Password</x-primary-button>
-                    </div>
-                </form>
+                        <div class="flex justify-end">
+                            <x-primary-button>Ubah Password</x-primary-button>
+                        </div>
+                    </form>
+                @endif
             </section>
         </div>
     </div>

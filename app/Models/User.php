@@ -64,4 +64,22 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail
     {
         return $this->isAdmin();
     }
+
+    /**
+     * Override notifikasi verifikasi bawaan Laravel dengan versi custom
+     * bertema app ini (App\Notifications\VerifyEmailNotification).
+     */
+    public function sendEmailVerificationNotification(): void
+    {
+        $this->notify(new \App\Notifications\VerifyEmailNotification());
+    }
+ 
+    /**
+     * Override notifikasi reset password bawaan Laravel dengan versi custom
+     * bertema app ini (App\Notifications\ResetPasswordNotification).
+     */
+    public function sendPasswordResetNotification($token): void
+    {
+        $this->notify(new \App\Notifications\ResetPasswordNotification($token));
+    }
 }

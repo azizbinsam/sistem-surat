@@ -76,4 +76,27 @@ Route::middleware(['auth'])->group(function () {
     Volt::route('pengaturan-sekolah', 'pages.pengaturan.sekolah')->name('pengaturan.sekolah');
 });
 
+
+// Preview template email di browser TANPA benar-benar ngirim — cuma aktif di
+// local & testing, sengaja nggak dibuka di production (nggak butuh auth,
+// jadi kalau kebuka di production siapa aja bisa akses & itu bukan hal yang
+// perlu publik). Buka: /dev/preview-email/verifikasi atau /reset-password.
+if (app()->environment(['local', 'testing'])) {
+    Route::prefix('dev/preview-email')->group(function () {
+        Route::get('verifikasi', function () {
+            $user = new \App\Models\User(['name' => 'Budi Santoso', 'email' => 'budi@contohsekolah.sch.id']);
+            $url = 'https://app.namadomain.com/verify-email/1/contohhash1234567890?expires=9999999999&signature=contohsignature1234567890';
+
+            return new \App\Mail\VerifikasiEmailMail($user, $url);
+        })->name('dev.preview-email.verifikasi');
+
+        Route::get('reset-password', function () {
+            $user = new \App\Models\User(['name' => 'Budi Santoso', 'email' => 'budi@contohsekolah.sch.id']);
+            $url = 'https://app.namadomain.com/reset-password/contohtoken1234567890?email=budi%40contohsekolah.sch.id';
+
+            return new \App\Mail\ResetPasswordMail($user, $url);
+        })->name('dev.preview-email.reset-password');
+    });
+}
+
 require __DIR__ . '/auth.php';
