@@ -382,6 +382,26 @@ new #[Layout('layouts.app')] class extends Component {
                     </tr>
                 @empty
                     <tr>
+                        <td colspan="8" class="px-5 py-16 text-center">
+                            <svg class="w-10 h-10 text-zinc-300 mx-auto mb-3" fill="none" stroke="currentColor"
+                                viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                                    d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                            </svg>
+                            <p class="text-sm text-zinc-500">
+                                @if ($search || $filterStatus)
+                                    Tidak ada transaksi yang cocok dengan pencarian/filter.
+                                @else
+                                    Belum ada data transaksi.
+                                @endif
+                            </p>
+                            @if (!$search && !$filterStatus)
+                                <a href="{{ route('transaksi.create') }}" wire:navigate
+                                    class="text-sm text-emerald-600 font-medium hover:underline mt-1 inline-block">+
+                                    Tambah
+                                    transaksi pertama</a>
+                            @endif
+                        </td>
                         <td colspan="8" class="px-5 py-16 text-center text-sm text-zinc-500">
                             @if ($search || $filterStatus)
                                 Tidak ada transaksi yang cocok dengan pencarian/filter.

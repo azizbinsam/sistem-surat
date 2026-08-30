@@ -15,8 +15,11 @@ Route::get('/', function () {
 })->name('welcome');
 
 Route::middleware(['auth'])->group(function () {
+    // TIDAK dikasih middleware('verified') dengan sengaja — sekolah harus tetap
+    // bisa login & pakai dashboard walau emailnya belum diverifikasi. Status
+    // verifikasi cuma ditampilkan sebagai banner non-blocking (lihat
+    // layout.verifikasi-email-banner), verifikasi bisa dilakukan sambil jalan.
     Volt::route('dashboard', 'pages.dashboard')
-        ->middleware('verified')
         ->name('dashboard');
 
     Volt::route('lengkapi-profil', 'pages.onboarding.lengkapi-profil')

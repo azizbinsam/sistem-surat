@@ -193,7 +193,8 @@ new #[Layout('layouts.app')] class extends Component {
                         <td class="px-4 py-3 text-sm font-medium text-zinc-900">{{ $pegawai->nama }}</td>
                         <td class="px-4 py-3 text-sm font-medium text-zinc-900">{{ $pegawai->nip ?? '-' }}</td>
                         <td class="px-4 py-3 text-sm font-medium text-zinc-900">{{ $pegawai->jabatan }}</td>
-                        <td class="px-4 py-3 text-sm font-medium text-zinc-900">{{ $labelKategori[$pegawai->kategori] }}
+                        <td class="px-4 py-3 text-sm font-medium text-zinc-900">
+                            {{ $labelKategori[$pegawai->kategori] }}
                         </td>
                         <td class="px-4 py-3 text-sm">
                             @if ($pegawai->ttd_path)
@@ -214,11 +215,24 @@ new #[Layout('layouts.app')] class extends Component {
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="7" class="px-4 py-6 text-center text-sm text-gray-500">
-                            @if ($search || $filterKategori)
-                                Tidak ada pegawai yang cocok dengan pencarian/filter.
-                            @else
-                                Belum ada data pegawai.
+                        <td colspan="7" class="px-5 py-16 text-center">
+                            <svg class="w-10 h-10 text-zinc-300 mx-auto mb-3" fill="none" stroke="currentColor"
+                                viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                                    d="M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m6-1a4 4 0 100-8 4 4 0 000 8zm6 3a4 4 0 00-3-3.87" />
+                            </svg>
+                            <p class="text-sm text-zinc-500">
+                                @if ($search || $filterKategori)
+                                    Tidak ada pegawai yang cocok dengan pencarian/filter.
+                                @else
+                                    Belum ada data pegawai.
+                                @endif
+                            </p>
+                            @if (!$search && !$filterKategori)
+                                <a href="{{ route('pegawai.create') }}" wire:navigate
+                                    class="text-sm text-emerald-600 font-medium hover:underline mt-1 inline-block">+
+                                    Tambah pegawai pertama
+                                </a>
                             @endif
                         </td>
                     </tr>

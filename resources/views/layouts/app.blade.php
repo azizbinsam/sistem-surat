@@ -16,6 +16,8 @@
         <livewire:layout.navigation />
 
         <div class="lg:pl-64 flex flex-col min-h-screen">
+            <livewire:layout.verifikasi-email-banner />
+
             <div
                 class="sticky top-0 z-30 flex items-center justify-between gap-3 bg-white border-b border-zinc-200 px-4 py-3">
                 <div class="flex items-center gap-3 lg:hidden">
