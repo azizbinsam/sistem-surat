@@ -11,18 +11,12 @@ use Illuminate\Support\Facades\Hash;
 class UserSeeder extends Seeder
 {
     /**
-     * Run the database seeds.
+     * Sample user role "sekolah" buat dev/testing lokal — akun admin sudah
+     * dipisah dan dikelola AdminUserSeeder (dari .env), bukan di sini lagi.
      */
     public function run(): void
     {
         $sekolah = Sekolah::first();
-
-        User::create([
-            'name' => 'Admin Delix Studio',
-            'email' => 'admin@delixstudio.com',
-            'password' => Hash::make('password'),
-            'role' => 'admin',
-        ]);
 
         User::create([
             'name' => 'Operator SDN 3 Rangkasbitung Timur',
