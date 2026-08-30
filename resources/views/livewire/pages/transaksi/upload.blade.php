@@ -405,7 +405,7 @@ new #[Layout('layouts.app')] class extends Component {
             <svg class="w-5 h-5 mt-0.5 flex-shrink-0 text-zinc-500" fill="none" stroke="currentColor"
                 viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                    d="M13 16h-1v-4h-1m1-4h.01M12 21a9 9 0 100-18 9 9 0 000-18z" />
+                    d="M13 16h-1v-4h-1m1-4h.01M12 21a9 9 0 100-18 9 9 0 000 18z" />
             </svg>
 
             <p class="text-sm text-zinc-600">
