@@ -196,10 +196,20 @@ new #[Layout('layouts.app')] class extends Component {
                 $transaksi = Transaksi::create($dataTransaksi);
 
                 foreach ($items as $item) {
+                    $barang = MasterBarang::find($item['master_barang_id']);
+
+                    // Spesifikasi opsional di Excel — fallback berjenjang: spesifikasi
+                    // terakhir dari histori penerimaan barang (BarangMasukItem) sebelum
+                    // tanggal transaksi ini, lalu spesifikasi_default master barang,
+                    // baru terakhir nama_barang. Kolomnya NOT NULL di DB, jadi harus
+                    // selalu ada nilai akhirnya — pola yang sama dipakai di form input
+                    // manual (transaksi/create.blade.php).
+                    $spesifikasiFinal = $item['spesifikasi'] ?: $matcher->cariSpesifikasiTerakhir($item['master_barang_id'], \Carbon\Carbon::parse($item['tanggal'])) ?: $barang?->spesifikasi_default ?: $barang?->nama_barang;
+
                     TransaksiItem::create([
                         'transaksi_id' => $transaksi->id,
                         'master_barang_id' => $item['master_barang_id'],
-                        'spesifikasi' => $item['spesifikasi'] ?: null,
+                        'spesifikasi' => $spesifikasiFinal,
                         'jumlah' => $item['jumlah'],
                         'satuan' => $item['satuan'],
                         'keperluan' => $item['keperluan'],
@@ -464,15 +474,22 @@ new #[Layout('layouts.app')] class extends Component {
             <table class="min-w-full divide-y divide-zinc-100 text-sm">
                 <thead class="bg-zinc-50">
                     <tr>
-                        <th class="px-3 py-2.5 text-left text-xs font-semibold text-zinc-500 uppercase tracking-wider">No. Referensi</th>
-                        <th class="px-3 py-2.5 text-left text-xs font-semibold text-zinc-500 uppercase tracking-wider">Tanggal</th>
-                        <th class="px-3 py-2.5 text-left text-xs font-semibold text-zinc-500 uppercase tracking-wider">Nama Barang (Excel)
+                        <th class="px-3 py-2.5 text-left text-xs font-semibold text-zinc-500 uppercase tracking-wider">
+                            No. Referensi</th>
+                        <th class="px-3 py-2.5 text-left text-xs font-semibold text-zinc-500 uppercase tracking-wider">
+                            Tanggal</th>
+                        <th class="px-3 py-2.5 text-left text-xs font-semibold text-zinc-500 uppercase tracking-wider">
+                            Nama Barang (Excel)
                         </th>
-                        <th class="px-3 py-2.5 text-left text-xs font-semibold text-zinc-500 uppercase tracking-wider">Jumlah</th>
-                        <th class="px-3 py-2.5 text-left text-xs font-semibold text-zinc-500 uppercase tracking-wider">Mapping ke Master
+                        <th class="px-3 py-2.5 text-left text-xs font-semibold text-zinc-500 uppercase tracking-wider">
+                            Jumlah</th>
+                        <th class="px-3 py-2.5 text-left text-xs font-semibold text-zinc-500 uppercase tracking-wider">
+                            Mapping ke Master
                             Barang</th>
-                        <th class="px-3 py-2.5 text-left text-xs font-semibold text-zinc-500 uppercase tracking-wider">Peminta</th>
-                        <th class="px-3 py-2.5 text-left text-xs font-semibold text-zinc-500 uppercase tracking-wider">Nomor NPB</th>
+                        <th class="px-3 py-2.5 text-left text-xs font-semibold text-zinc-500 uppercase tracking-wider">
+                            Peminta</th>
+                        <th class="px-3 py-2.5 text-left text-xs font-semibold text-zinc-500 uppercase tracking-wider">
+                            Nomor NPB</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-zinc-100">

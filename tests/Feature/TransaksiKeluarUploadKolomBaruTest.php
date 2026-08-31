@@ -80,6 +80,86 @@ class TransaksiKeluarUploadKolomBaruTest extends TestCase
             ->assertSee('pakai default'); // fallback text buat spesifikasi kosong
     }
 
+    /**
+     * Regresi: kolom transaksi_item.spesifikasi NOT NULL di DB, tapi baris review
+     * sempat nyimpen null mentah-mentah kalau Excel-nya kosong -> SQLSTATE 23000.
+     * Fallback berjenjang harus jalan: histori BPU terakhir -> spesifikasi_default
+     * master barang -> nama_barang. Test lama cuma sampe step 'review' (nggak
+     * pernah manggil simpan()), jadi bug ini nggak pernah ketauan sebelumnya.
+     */
+    public function test_spesifikasi_kosong_di_excel_fallback_ke_nama_barang_pas_simpan(): void
+    {
+        // $this->barang ("Kertas HVS") sengaja nggak punya spesifikasi_default
+        // ataupun histori BPU sama sekali -> jatuh ke fallback paling akhir.
+        $file = $this->buatFileExcel([
+            ['2026-02-01', 'REF-KOSONG', 'Kertas HVS', '', 3, 'Rim', 'Kebutuhan kelas', '', '', ''],
+        ]);
+
+        Volt::actingAs($this->user)
+            ->test('pages.transaksi.upload')
+            ->set('file', $file)
+            ->call('parse')
+            ->call('simpan')
+            ->assertHasNoErrors();
+
+        $item = \App\Models\TransaksiItem::whereHas('transaksi', fn($q) => $q->where('nomor_referensi_asal', 'REF-KOSONG'))->firstOrFail();
+
+        $this->assertSame('Kertas HVS', $item->spesifikasi);
+    }
+
+    public function test_spesifikasi_kosong_di_excel_fallback_ke_spesifikasi_default_master_barang(): void
+    {
+        $this->barang->update(['spesifikasi_default' => '80gsm A4']);
+
+        $file = $this->buatFileExcel([
+            ['2026-02-01', 'REF-DEFAULT', 'Kertas HVS', '', 3, 'Rim', 'Kebutuhan kelas', '', '', ''],
+        ]);
+
+        Volt::actingAs($this->user)
+            ->test('pages.transaksi.upload')
+            ->set('file', $file)
+            ->call('parse')
+            ->call('simpan')
+            ->assertHasNoErrors();
+
+        $item = \App\Models\TransaksiItem::whereHas('transaksi', fn($q) => $q->where('nomor_referensi_asal', 'REF-DEFAULT'))->firstOrFail();
+
+        $this->assertSame('80gsm A4', $item->spesifikasi);
+    }
+
+    public function test_spesifikasi_kosong_di_excel_fallback_ke_histori_penerimaan_barang(): void
+    {
+        $this->barang->update(['spesifikasi_default' => '80gsm A4']); // ada default, tapi histori BPU harus menang
+
+        $bpu = \App\Models\BarangMasuk::create([
+            'sekolah_id' => $this->sekolah->id,
+            'nomor_bpu' => 'BPU-001',
+            'tanggal' => '2026-01-15',
+        ]);
+        \App\Models\BarangMasukItem::create([
+            'barang_masuk_id' => $bpu->id,
+            'master_barang_id' => $this->barang->id,
+            'spesifikasi' => '70gsm F4 dari BPU',
+            'satuan' => 'Rim',
+            'jumlah' => 10,
+        ]);
+
+        $file = $this->buatFileExcel([
+            ['2026-02-01', 'REF-HISTORI', 'Kertas HVS', '', 3, 'Rim', 'Kebutuhan kelas', '', '', ''],
+        ]);
+
+        Volt::actingAs($this->user)
+            ->test('pages.transaksi.upload')
+            ->set('file', $file)
+            ->call('parse')
+            ->call('simpan')
+            ->assertHasNoErrors();
+
+        $item = \App\Models\TransaksiItem::whereHas('transaksi', fn($q) => $q->where('nomor_referensi_asal', 'REF-HISTORI'))->firstOrFail();
+
+        $this->assertSame('70gsm F4 dari BPU', $item->spesifikasi);
+    }
+
     public function test_barang_belum_dikenal_tampil_dengan_dropdown_mapping_di_review(): void
     {
         $file = $this->buatFileExcel([
