@@ -13,8 +13,14 @@ new #[Layout('layouts.app')] class extends Component {
     public string $filterKategori = '';
     public string $sortBy = 'nama_barang';
     public string $sortDir = 'asc';
+    public string $perPage = '10';
 
     protected array $kolomBolehSort = ['kode_barang', 'nama_barang', 'kategori', 'satuan_default'];
+
+    public function updatingPerPage(): void
+    {
+        $this->resetPage();
+    }
 
     public function updatingSearch(): void
     {
@@ -106,7 +112,7 @@ new #[Layout('layouts.app')] class extends Component {
                 ->when($this->search, fn($q) => $q->where('nama_barang', 'like', "%{$this->search}%")->orWhere('kode_barang', 'like', "%{$this->search}%"))
                 ->when($this->filterKategori, fn($q) => $q->where('kategori', $this->filterKategori))
                 ->orderBy($this->sortBy, $this->sortDir)
-                ->paginate(10),
+                ->paginate($this->perPage === 'semua' ? 100000 : (int) $this->perPage),
             'daftarKategori' => MasterBarang::where('sekolah_id', auth()->user()->sekolah_id)
                 ->whereNotNull('kategori')
                 ->where('kategori', '!=', '')
@@ -155,6 +161,7 @@ new #[Layout('layouts.app')] class extends Component {
                 <option value="{{ $kategori }}">{{ $kategori }}</option>
             @endforeach
         </select>
+        <x-per-page-selector />
     </div>
 
     @if (count($selected) > 0)

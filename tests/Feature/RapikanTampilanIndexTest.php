@@ -136,4 +136,80 @@ class RapikanTampilanIndexTest extends TestCase
         $this->assertStringNotContainsString('rounded-l-md', $html);
         $this->assertStringContainsString('Menampilkan', $html); // teks dari view custom kita
     }
+
+    // ===== Per-page selector (10/20/50/Semua) — dibutuhkan biar bulk select/generate
+    // bisa nyakup semua data, nggak kebatas per halaman default =====
+
+    public function test_master_barang_default_10_per_halaman(): void
+    {
+        for ($i = 1; $i <= 15; $i++) {
+            MasterBarang::create(['sekolah_id' => $this->sekolah->id, 'kode_barang' => "A{$i}", 'nama_barang' => "Barang {$i}", 'satuan_default' => 'Pak']);
+        }
+
+        Volt::actingAs($this->user)->test('pages.master-barang.index')
+            ->assertViewHas('daftarBarang', fn($p) => $p->count() === 10);
+    }
+
+    public function test_master_barang_perpage_semua_nampilin_semua_baris(): void
+    {
+        for ($i = 1; $i <= 15; $i++) {
+            MasterBarang::create(['sekolah_id' => $this->sekolah->id, 'kode_barang' => "A{$i}", 'nama_barang' => "Barang {$i}", 'satuan_default' => 'Pak']);
+        }
+
+        Volt::actingAs($this->user)->test('pages.master-barang.index')
+            ->set('perPage', 'semua')
+            ->assertViewHas('daftarBarang', fn($p) => $p->count() === 15);
+    }
+
+    public function test_pegawai_perpage_semua_nampilin_semua_baris(): void
+    {
+        for ($i = 1; $i <= 12; $i++) {
+            Pegawai::create(['sekolah_id' => $this->sekolah->id, 'nama' => "Pegawai {$i}", 'jabatan' => 'Guru', 'kategori' => 'guru']);
+        }
+
+        Volt::actingAs($this->user)->test('pages.pegawai.index')
+            ->set('perPage', 'semua')
+            ->assertViewHas('daftarPegawai', fn($p) => $p->count() === 12);
+    }
+
+    public function test_barang_masuk_perpage_semua_nampilin_semua_baris(): void
+    {
+        for ($i = 1; $i <= 12; $i++) {
+            BarangMasuk::create(['sekolah_id' => $this->sekolah->id, 'nomor_bpu' => "BPU-{$i}", 'tanggal' => '2026-01-01']);
+        }
+
+        Volt::actingAs($this->user)->test('pages.barang-masuk.index')
+            ->set('perPage', 'semua')
+            ->assertViewHas('daftarBpu', fn($p) => $p->count() === 12);
+    }
+
+    public function test_transaksi_perpage_semua_nampilin_semua_baris(): void
+    {
+        $pegawai = Pegawai::create(['sekolah_id' => $this->sekolah->id, 'nama' => 'Budi', 'jabatan' => 'Guru', 'kategori' => 'guru']);
+        for ($i = 1; $i <= 12; $i++) {
+            \App\Models\Transaksi::create([
+                'sekolah_id' => $this->sekolah->id,
+                'nomor_referensi_asal' => "REF-{$i}",
+                'tanggal_npb' => '2026-01-01',
+                'pihak_peminta_id' => $pegawai->id,
+                'status' => 'draft',
+            ]);
+        }
+
+        Volt::actingAs($this->user)->test('pages.transaksi.index')
+            ->set('perPage', 'semua')
+            ->assertViewHas('daftarTransaksi', fn($p) => $p->count() === 12);
+    }
+
+    public function test_ganti_perpage_reset_ke_halaman_1(): void
+    {
+        for ($i = 1; $i <= 15; $i++) {
+            MasterBarang::create(['sekolah_id' => $this->sekolah->id, 'kode_barang' => "A{$i}", 'nama_barang' => "Barang {$i}", 'satuan_default' => 'Pak']);
+        }
+
+        Volt::actingAs($this->user)->test('pages.master-barang.index')
+            ->call('gotoPage', 2)
+            ->set('perPage', '20')
+            ->assertViewHas('daftarBarang', fn($p) => $p->currentPage() === 1);
+    }
 }

@@ -13,6 +13,7 @@ new #[Layout('layouts.app')] class extends Component {
     public string $filterKategori = '';
     public string $sortBy = 'nama';
     public string $sortDir = 'asc';
+    public string $perPage = '10';
 
     protected array $kolomBolehSort = ['nama', 'jabatan', 'kategori'];
 
@@ -22,6 +23,11 @@ new #[Layout('layouts.app')] class extends Component {
         'guru' => 'Guru',
         'tendik' => 'Tendik',
     ];
+
+    public function updatingPerPage(): void
+    {
+        $this->resetPage();
+    }
 
     public function updatingSearch(): void
     {
@@ -109,7 +115,7 @@ new #[Layout('layouts.app')] class extends Component {
                 ->when($this->search, fn($q) => $q->where('nama', 'like', "%{$this->search}%"))
                 ->when($this->filterKategori, fn($q) => $q->where('kategori', $this->filterKategori))
                 ->orderBy($this->sortBy, $this->sortDir)
-                ->paginate(10),
+                ->paginate($this->perPage === 'semua' ? 100000 : (int) $this->perPage),
             'labelKategori' => $this->labelKategori,
         ];
     }
@@ -153,6 +159,7 @@ new #[Layout('layouts.app')] class extends Component {
                 <option value="{{ $value }}">{{ $label }}</option>
             @endforeach
         </select>
+        <x-per-page-selector />
     </div>
 
     @if (count($selected) > 0)

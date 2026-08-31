@@ -150,4 +150,64 @@ class PenomoranHybridTest extends TestCase
         $this->assertSame('005/BOS/2019.1', $transaksi->nomor_spb);
         $this->assertSame($counterSebelum, $this->tahunAnggaran->fresh()->nomor_urut_terakhir);
     }
+
+    /**
+     * Regresi: generateBulk() sebelumnya query whereIn('id', $this->selected) tanpa
+     * orderBy sama sekali, jadi urutan penomoran ngikutin urutan baris di DB (biasanya
+     * id/insertion order) — bukan urutan tanggal transaksi. Kalau user nge-select
+     * campuran transaksi dari beberapa halaman/urutan klik yang nggak kronologis,
+     * transaksi bertanggal lebih baru bisa kebagian nomor urut lebih kecil daripada
+     * yang tanggalnya lebih lama. Nomor NPB harus selalu ngikutin kronologis tanggal.
+     */
+    public function test_generate_bulk_kasih_nomor_urut_sesuai_kronologis_tanggal_bukan_urutan_select(): void
+    {
+        $pegawai = \App\Models\Pegawai::create([
+            'sekolah_id' => $this->sekolah->id,
+            'nama' => 'Budi',
+            'nip' => '123',
+            'jabatan' => 'Guru',
+            'kategori' => 'guru',
+        ]);
+        $barang = MasterBarang::create([
+            'sekolah_id' => $this->sekolah->id,
+            'kode_barang' => 'ATK-001',
+            'nama_barang' => 'Kertas HVS',
+            'satuan_default' => 'Rim',
+        ]);
+
+        $buatTransaksi = function (string $ref, string $tanggal) use ($pegawai, $barang) {
+            $t = Transaksi::create([
+                'sekolah_id' => $this->sekolah->id,
+                'nomor_referensi_asal' => $ref,
+                'tanggal_npb' => $tanggal,
+                'pihak_peminta_id' => $pegawai->id,
+                'status' => 'draft',
+            ]);
+            $t->items()->create([
+                'master_barang_id' => $barang->id,
+                'spesifikasi' => 'Standar',
+                'jumlah' => 1,
+                'satuan' => 'Rim',
+                'keperluan' => 'x',
+            ]);
+
+            return $t;
+        };
+
+        // Sengaja dibikin TIDAK kronologis: yang tanggalnya paling baru dibuat duluan
+        // (jadi id-nya paling kecil), yang paling lama dibuat belakangan.
+        $terbaru = $buatTransaksi('REF-BARU', '2026-03-01');
+        $terlama = $buatTransaksi('REF-LAMA', '2026-01-01');
+        $tengah = $buatTransaksi('REF-TENGAH', '2026-02-01');
+
+        // nomor_urut_terakhir mulai dari 5 (lihat setUp)
+        Volt::actingAs($this->user)
+            ->test('pages.transaksi.index')
+            ->set('selected', [$terbaru->id, $terlama->id, $tengah->id]) // urutan select sengaja diacak
+            ->call('generateBulk', 'docx');
+
+        $this->assertStringContainsString('/0006/', $terlama->fresh()->nomor_npb); // paling lama -> nomor terkecil
+        $this->assertStringContainsString('/0007/', $tengah->fresh()->nomor_npb);
+        $this->assertStringContainsString('/0008/', $terbaru->fresh()->nomor_npb); // paling baru -> nomor terbesar
+    }
 }
