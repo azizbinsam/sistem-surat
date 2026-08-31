@@ -50,6 +50,11 @@ class GoogleAuthController extends Controller
                     'password' => Hash::make(Str::random(40)), // nggak bakal kepakai, login selalu lewat Google
                     'email_verified_at' => now(), // Google udah verifikasi kepemilikan emailnya
                 ]);
+
+                // Bukan email verifikasi (nggak relevan, udah verified dari atas) —
+                // ini notifikasi "akun berhasil dibuat" versi Google, tanpa tombol
+                // verifikasi sama sekali.
+                $user->notify(new \App\Notifications\SelamatDatangGoogleNotification());
             }
         }
 

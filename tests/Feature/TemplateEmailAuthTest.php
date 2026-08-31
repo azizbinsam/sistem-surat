@@ -3,6 +3,7 @@
 namespace Tests\Feature\Auth;
 
 use App\Mail\ResetPasswordMail;
+use App\Mail\SelamatDatangGoogleMail;
 use App\Mail\VerifikasiEmailMail;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -67,6 +68,24 @@ class TemplateEmailAuthTest extends TestCase
     public function test_route_preview_reset_password_bisa_diakses_di_testing(): void
     {
         $this->get(route('dev.preview-email.reset-password'))
+            ->assertOk()
+            ->assertSeeText('Budi Santoso');
+    }
+
+    public function test_isi_email_selamat_datang_google_ada_nama_dan_tanpa_kata_verifikasi(): void
+    {
+        $user = new User(['name' => 'Budi Santoso', 'email' => 'budi@gmail.com']);
+        $mail = new SelamatDatangGoogleMail($user);
+
+        $mail->assertSeeInHtml('Budi Santoso');
+        // Pastikan nggak ada ajakan "verifikasi email" nyasar ke template ini —
+        // beda tujuan sama VerifikasiEmailMail.
+        $mail->assertDontSeeInHtml('Verifikasi Email');
+    }
+
+    public function test_route_preview_selamat_datang_google_bisa_diakses_di_testing(): void
+    {
+        $this->get(route('dev.preview-email.selamat-datang-google'))
             ->assertOk()
             ->assertSeeText('Budi Santoso');
     }

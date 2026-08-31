@@ -96,6 +96,12 @@ if (app()->environment(['local', 'testing'])) {
 
             return new \App\Mail\ResetPasswordMail($user, $url);
         })->name('dev.preview-email.reset-password');
+
+        Route::get('selamat-datang-google', function () {
+            $user = new \App\Models\User(['name' => 'Budi Santoso', 'email' => 'budi@gmail.com']);
+
+            return new \App\Mail\SelamatDatangGoogleMail($user);
+        })->name('dev.preview-email.selamat-datang-google');
     });
 }
 

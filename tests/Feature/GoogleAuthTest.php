@@ -2,9 +2,12 @@
 
 namespace Tests\Feature\Auth;
 
+use App\Mail\SelamatDatangGoogleMail;
+use App\Mail\VerifikasiEmailMail;
 use App\Models\Sekolah;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Mail;
 use Laravel\Socialite\Facades\Socialite;
 use Laravel\Socialite\Two\User as SocialiteUser;
 use Livewire\Volt\Volt;
@@ -29,6 +32,8 @@ class GoogleAuthTest extends TestCase
 
     public function test_callback_bikin_user_baru_kalau_belum_pernah_login_google(): void
     {
+        Mail::fake();
+
         $this->fakeGoogleUser();
 
         $this->get(route('google.callback'))->assertRedirect(route('dashboard'));
@@ -38,6 +43,45 @@ class GoogleAuthTest extends TestCase
         $this->assertSame('Budi Santoso', $user->name);
         $this->assertNotNull($user->email_verified_at); // langsung verified, nggak perlu link email
         $this->assertAuthenticatedAs($user);
+    }
+
+    /** Ini inti dari kasusnya: user Google TIDAK dapet email verifikasi, TAPI tetap dapet notifikasi pendaftaran (versi tanpa tombol verifikasi). */
+    public function test_user_baru_via_google_dapet_notifikasi_selamat_datang_bukan_verifikasi(): void
+    {
+        Mail::fake();
+
+        $this->fakeGoogleUser();
+
+        $this->get(route('google.callback'));
+
+        $user = User::where('email', 'budi@gmail.com')->firstOrFail();
+
+        Mail::assertSent(SelamatDatangGoogleMail::class, fn(SelamatDatangGoogleMail $mail) => $mail->hasTo($user->email) && $mail->user->is($user));
+        Mail::assertNotSent(VerifikasiEmailMail::class);
+    }
+
+    public function test_link_akun_manual_yang_udah_ada_tidak_dapet_notifikasi_selamat_datang_lagi(): void
+    {
+        Mail::fake();
+        User::factory()->unverified()->create(['email' => 'budi@gmail.com', 'google_id' => null]);
+
+        $this->fakeGoogleUser(email: 'budi@gmail.com');
+        $this->get(route('google.callback'));
+
+        // Ini penautan akun lama, bukan pendaftaran baru — jangan dikirimin
+        // "selamat datang" seolah-olah baru daftar.
+        Mail::assertNotSent(SelamatDatangGoogleMail::class);
+    }
+
+    public function test_login_ulang_user_google_yang_sudah_ada_tidak_dapet_notifikasi_lagi(): void
+    {
+        $user = User::factory()->create(['google_id' => '1234567890']);
+        Mail::fake();
+
+        $this->fakeGoogleUser(id: '1234567890', email: $user->email);
+        $this->get(route('google.callback'));
+
+        Mail::assertNotSent(SelamatDatangGoogleMail::class);
     }
 
     public function test_callback_tautkan_ke_akun_manual_yang_udah_ada_kalau_email_sama(): void
