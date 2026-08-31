@@ -462,9 +462,82 @@ new #[Layout('layouts.app')] class extends Component {
         <div class="bg-white rounded-xl border border-zinc-100 shadow-sm overflow-x-auto mb-4">
 
             <table class="min-w-full divide-y divide-zinc-100 text-sm">
+                <thead class="bg-zinc-50">
+                    <tr>
+                        <th class="px-3 py-2.5 text-left text-xs font-semibold text-zinc-500 uppercase tracking-wider">No. Referensi</th>
+                        <th class="px-3 py-2.5 text-left text-xs font-semibold text-zinc-500 uppercase tracking-wider">Tanggal</th>
+                        <th class="px-3 py-2.5 text-left text-xs font-semibold text-zinc-500 uppercase tracking-wider">Nama Barang (Excel)
+                        </th>
+                        <th class="px-3 py-2.5 text-left text-xs font-semibold text-zinc-500 uppercase tracking-wider">Jumlah</th>
+                        <th class="px-3 py-2.5 text-left text-xs font-semibold text-zinc-500 uppercase tracking-wider">Mapping ke Master
+                            Barang</th>
+                        <th class="px-3 py-2.5 text-left text-xs font-semibold text-zinc-500 uppercase tracking-wider">Peminta</th>
+                        <th class="px-3 py-2.5 text-left text-xs font-semibold text-zinc-500 uppercase tracking-wider">Nomor NPB</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-zinc-100">
+                    @foreach ($rows as $index => $row)
+                        <tr wire:key="row-{{ $index }}"
+                            class="{{ $row['master_barang_id'] ? 'bg-green-50' : 'bg-amber-50' }}">
+                            <td class="px-3 py-2">{{ $row['nomor_referensi'] }}</td>
+                            <td class="px-3 py-2">{{ $row['tanggal'] }}</td>
+                            <td class="px-3 py-2">{{ $row['nama_barang'] }} <span
+                                    class="text-gray-400">({{ $row['spesifikasi'] ?: 'pakai default' }})</span></td>
+                            <td class="px-3 py-2">{{ $row['jumlah'] }} {{ $row['satuan'] }}</td>
+                            <td class="px-3 py-2">
+                                @if ($row['was_auto_matched'])
+                                    <span class="text-green-700">✓
+                                        {{ $daftarMasterBarang->find($row['master_barang_id'])?->nama_barang }}</span>
+                                @else
+                                    <select wire:model="rows.{{ $index }}.master_barang_id"
+                                        class="w-full text-sm border-gray-300 rounded-md">
+                                        <option value="">-- Belum dipilih --</option>
+                                        @foreach ($daftarMasterBarang as $mb)
+                                            <option value="{{ $mb->id }}">{{ $mb->nama_barang }}
+                                                ({{ $mb->kode_barang }})
+                                            </option>
+                                        @endforeach
+                                    </select>
 
-                {{-- isi table tetap sama --}}
+                                    @if (!$row['master_barang_id'])
+                                        <button type="button"
+                                            wire:click="$set('showCreateForm.{{ $index }}', true)"
+                                            class="text-xs text-zinc-600 hover:underline mt-1">
+                                            atau buat sebagai barang baru
+                                        </button>
+                                    @endif
 
+                                    @if ($showCreateForm[$index] ?? false)
+                                        <div class="mt-2 p-2 border border-zinc-200 rounded space-y-1">
+                                            <input type="text" wire:model="rows.{{ $index }}.kode_baru"
+                                                placeholder="Kode Barang"
+                                                class="w-full text-xs border-gray-300 rounded">
+                                            <input type="text" wire:model="rows.{{ $index }}.satuan_baru"
+                                                placeholder="Satuan" class="w-full text-xs border-gray-300 rounded">
+                                            <button type="button" wire:click="buatBarangBaru({{ $index }})"
+                                                class="text-xs bg-zinc-800 text-white px-2 py-1 rounded">Buat &
+                                                Pakai</button>
+                                        </div>
+                                    @endif
+                                @endif
+                            </td>
+                            <td class="px-3 py-2 text-xs">
+                                @if ($row['nama_peminta'])
+                                    @if ($row['pihak_peminta_id'])
+                                        <span class="text-green-700">✓ {{ $row['nama_peminta'] }}</span>
+                                    @else
+                                        <span class="text-amber-700">⚠ {{ $row['nama_peminta'] }} (gagal cocok)</span>
+                                    @endif
+                                @else
+                                    <span class="text-zinc-400">-</span>
+                                @endif
+                            </td>
+                            <td class="px-3 py-2 text-xs">
+                                {{ $row['nomor_npb_override'] ?: '-' }}
+                            </td>
+                        </tr>
+                    @endforeach
+                </tbody>
             </table>
 
         </div>

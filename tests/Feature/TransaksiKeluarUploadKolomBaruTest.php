@@ -70,7 +70,29 @@ class TransaksiKeluarUploadKolomBaruTest extends TestCase
             ->set('file', $file)
             ->call('parse')
             ->assertSet('step', 'review')
-            ->assertSet('errorMsg', null);
+            ->assertSet('errorMsg', null)
+            // Bug regresi (Fase "Dashboard v2 + redesign"): tabel review sempat ke-timpa
+            // jadi komentar placeholder kosong, jadi baris ini nggak pernah kelihatan di
+            // HTML meskipun step & data internal-nya udah benar. Makanya perlu assertSee,
+            // bukan cuma assertSet, biar bug kayak gini nggak lolos lagi diam-diam.
+            ->assertSee('REF-01')
+            ->assertSee('Kertas HVS')
+            ->assertSee('pakai default'); // fallback text buat spesifikasi kosong
+    }
+
+    public function test_barang_belum_dikenal_tampil_dengan_dropdown_mapping_di_review(): void
+    {
+        $file = $this->buatFileExcel([
+            ['2026-02-01', 'REF-02', 'Barang Yang Belum Ada', 'Standar', 5, 'Buah', 'Kebutuhan kelas', '', '', ''],
+        ]);
+
+        Volt::actingAs($this->user)
+            ->test('pages.transaksi.upload')
+            ->set('file', $file)
+            ->call('parse')
+            ->assertSee('Barang Yang Belum Ada')
+            ->assertSee('Belum dipilih') // opsi default dropdown mapping
+            ->assertSee('atau buat sebagai barang baru');
     }
 
     public function test_auto_mapping_pihak_peminta_dari_nama_dan_jabatan(): void
