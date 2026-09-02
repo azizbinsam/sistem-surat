@@ -37,7 +37,7 @@ new #[Layout('layouts.app')] class extends Component {
         $pesan = "{$importer->jumlahDitambahkan()} barang berhasil ditambahkan.";
 
         if (!empty($importer->dilewati())) {
-            $pesan .= ' ⚠ ' . count($importer->dilewati()) . ' barang dilewati karena kodenya sudah terdaftar.';
+            $pesan .= ' ⚠ ' . count($importer->dilewati()) . ' barang dilewati karena kodenya sudah terdaftar (' . implode(', ', $importer->dilewati()) . ').';
         }
 
         session()->flash('success', $pesan);

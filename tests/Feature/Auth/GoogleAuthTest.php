@@ -6,8 +6,10 @@ use App\Mail\SelamatDatangGoogleMail;
 use App\Mail\VerifikasiEmailMail;
 use App\Models\Sekolah;
 use App\Models\User;
+use App\Notifications\SelamatDatangGoogleNotification;
+use App\Notifications\VerifyEmailNotification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Notification;
 use Laravel\Socialite\Facades\Socialite;
 use Laravel\Socialite\Two\User as SocialiteUser;
 use Livewire\Volt\Volt;
@@ -32,7 +34,7 @@ class GoogleAuthTest extends TestCase
 
     public function test_callback_bikin_user_baru_kalau_belum_pernah_login_google(): void
     {
-        Mail::fake();
+        Notification::fake();
 
         $this->fakeGoogleUser();
 
@@ -45,10 +47,18 @@ class GoogleAuthTest extends TestCase
         $this->assertAuthenticatedAs($user);
     }
 
-    /** Ini inti dari kasusnya: user Google TIDAK dapet email verifikasi, TAPI tetap dapet notifikasi pendaftaran (versi tanpa tombol verifikasi). */
+    /**
+     * Ini inti dari kasusnya: user Google TIDAK dapet email verifikasi, TAPI tetap
+     * dapet notifikasi pendaftaran (versi tanpa tombol verifikasi).
+     *
+     * Pakai Notification::fake() (bukan Mail::fake()) — notifikasi yang toMail()-nya
+     * balikin Mailable custom itu ngirim lewat Mailable::send($mailer) versi
+     * low-level (buildView() dulu baru dikirim), bukan lewat Mail::to()->send()
+     * yang biasa. Mail::fake() nggak reliable nangkep pola itu.
+     */
     public function test_user_baru_via_google_dapet_notifikasi_selamat_datang_bukan_verifikasi(): void
     {
-        Mail::fake();
+        Notification::fake();
 
         $this->fakeGoogleUser();
 
@@ -56,32 +66,36 @@ class GoogleAuthTest extends TestCase
 
         $user = User::where('email', 'budi@gmail.com')->firstOrFail();
 
-        Mail::assertSent(SelamatDatangGoogleMail::class, fn(SelamatDatangGoogleMail $mail) => $mail->hasTo($user->email) && $mail->user->is($user));
-        Mail::assertNotSent(VerifikasiEmailMail::class);
+        Notification::assertSentTo($user, SelamatDatangGoogleNotification::class, function (SelamatDatangGoogleNotification $notification) use ($user) {
+            $mail = $notification->toMail($user);
+
+            return $mail instanceof SelamatDatangGoogleMail && $mail->hasTo($user->email) && $mail->user->is($user);
+        });
+        Notification::assertNotSentTo($user, VerifyEmailNotification::class);
     }
 
     public function test_link_akun_manual_yang_udah_ada_tidak_dapet_notifikasi_selamat_datang_lagi(): void
     {
-        Mail::fake();
-        User::factory()->unverified()->create(['email' => 'budi@gmail.com', 'google_id' => null]);
+        Notification::fake();
+        $existing = User::factory()->unverified()->create(['email' => 'budi@gmail.com', 'google_id' => null]);
 
         $this->fakeGoogleUser(email: 'budi@gmail.com');
         $this->get(route('google.callback'));
 
         // Ini penautan akun lama, bukan pendaftaran baru — jangan dikirimin
         // "selamat datang" seolah-olah baru daftar.
-        Mail::assertNotSent(SelamatDatangGoogleMail::class);
+        Notification::assertNotSentTo($existing, SelamatDatangGoogleNotification::class);
     }
 
     public function test_login_ulang_user_google_yang_sudah_ada_tidak_dapet_notifikasi_lagi(): void
     {
         $user = User::factory()->create(['google_id' => '1234567890']);
-        Mail::fake();
+        Notification::fake();
 
         $this->fakeGoogleUser(id: '1234567890', email: $user->email);
         $this->get(route('google.callback'));
 
-        Mail::assertNotSent(SelamatDatangGoogleMail::class);
+        Notification::assertNotSentTo($user, SelamatDatangGoogleNotification::class);
     }
 
     public function test_callback_tautkan_ke_akun_manual_yang_udah_ada_kalau_email_sama(): void

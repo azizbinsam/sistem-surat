@@ -3,8 +3,8 @@
 namespace Tests\Feature\Auth;
 
 use App\Models\User;
-use Illuminate\Auth\Notifications\ResetPassword;
-use Illuminate\Auth\Notifications\VerifyEmail;
+use App\Notifications\ResetPasswordNotification;
+use App\Notifications\VerifyEmailNotification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Notification;
 use Livewire\Volt\Volt;
@@ -28,8 +28,10 @@ class VerifikasiEmailNonBlockingTest extends TestCase
         $user = User::where('email', 'sekolahbaru@example.com')->firstOrFail();
 
         // Ini yang sebelumnya nggak pernah kejadian sama sekali karena listener-nya
-        // belum ke-daftar (lihat AppServiceProvider::boot()).
-        Notification::assertSentTo($user, VerifyEmail::class);
+        // belum ke-daftar (lihat AppServiceProvider::boot()). Cek class CUSTOM kita
+        // (bukan Illuminate\Auth\Notifications\VerifyEmail bawaan) karena User model
+        // override sendEmailVerificationNotification() buat pakai notifikasi sendiri.
+        Notification::assertSentTo($user, VerifyEmailNotification::class);
     }
 
     public function test_user_belum_verifikasi_tetap_bisa_akses_dashboard(): void
@@ -81,7 +83,7 @@ class VerifikasiEmailNonBlockingTest extends TestCase
             ->call('kirimUlang')
             ->assertSee('Link verifikasi baru sudah dikirim');
 
-        Notification::assertSentTo($user, VerifyEmail::class);
+        Notification::assertSentTo($user, VerifyEmailNotification::class);
     }
 
     public function test_tutup_banner_kesimpen_di_session_nggak_muncul_lagi(): void
@@ -108,6 +110,6 @@ class VerifikasiEmailNonBlockingTest extends TestCase
             ->set('email', 'user@example.com')
             ->call('sendPasswordResetLink');
 
-        Notification::assertSentTo($user, ResetPassword::class);
+        Notification::assertSentTo($user, ResetPasswordNotification::class);
     }
 }

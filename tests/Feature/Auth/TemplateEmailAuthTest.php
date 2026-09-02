@@ -6,8 +6,10 @@ use App\Mail\ResetPasswordMail;
 use App\Mail\SelamatDatangGoogleMail;
 use App\Mail\VerifikasiEmailMail;
 use App\Models\User;
+use App\Notifications\ResetPasswordNotification;
+use App\Notifications\VerifyEmailNotification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Notification;
 use Tests\TestCase;
 
 class TemplateEmailAuthTest extends TestCase
@@ -16,25 +18,35 @@ class TemplateEmailAuthTest extends TestCase
 
     public function test_verifikasi_email_pakai_mailable_custom(): void
     {
-        Mail::fake();
+        // Notification::fake() dipakai di sini, BUKAN Mail::fake() — soalnya
+        // notifikasi yang toMail()-nya balikin Mailable custom itu ngirim lewat
+        // Mailable::send($mailer) versi low-level (buildView() dulu, baru dikirim),
+        // bukan lewat Mail::to()->send($mailable) yang biasa. Mail::fake() nggak
+        // reliable nangkep pola itu, jadi kita cek di level notifikasi aja.
+        Notification::fake();
 
         $user = User::factory()->unverified()->create();
         $user->sendEmailVerificationNotification();
 
-        Mail::assertSent(VerifikasiEmailMail::class, function (VerifikasiEmailMail $mail) use ($user) {
-            return $mail->hasTo($user->email) && $mail->user->is($user);
+        Notification::assertSentTo($user, VerifyEmailNotification::class, function (VerifyEmailNotification $notification) use ($user) {
+            $mail = $notification->toMail($user);
+
+            return $mail instanceof VerifikasiEmailMail && $mail->hasTo($user->email) && $mail->user->is($user);
         });
     }
 
     public function test_reset_password_pakai_mailable_custom(): void
     {
-        Mail::fake();
+        Notification::fake();
 
         $user = User::factory()->create();
         $user->sendPasswordResetNotification('contoh-token-123');
 
-        Mail::assertSent(ResetPasswordMail::class, function (ResetPasswordMail $mail) use ($user) {
-            return $mail->hasTo($user->email)
+        Notification::assertSentTo($user, ResetPasswordNotification::class, function (ResetPasswordNotification $notification) use ($user) {
+            $mail = $notification->toMail($user);
+
+            return $mail instanceof ResetPasswordMail
+                && $mail->hasTo($user->email)
                 && str_contains($mail->resetUrl, 'contoh-token-123')
                 && str_contains($mail->resetUrl, urlencode($user->email));
         });
