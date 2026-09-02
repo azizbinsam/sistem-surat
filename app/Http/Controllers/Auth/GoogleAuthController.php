@@ -43,13 +43,14 @@ class GoogleAuthController extends Controller
                     'email_verified_at' => $user->email_verified_at ?? now(),
                 ])->save();
             } else {
-                $user = User::create([
+                $user = new User();
+                $user->forceFill([
                     'name' => $googleUser->getName() ?: $googleUser->getNickname() ?: 'Pengguna Google',
                     'email' => $googleUser->getEmail(),
                     'google_id' => $googleUser->getId(),
                     'password' => Hash::make(Str::random(40)), // nggak bakal kepakai, login selalu lewat Google
                     'email_verified_at' => now(), // Google udah verifikasi kepemilikan emailnya
-                ]);
+                ])->save();
 
                 // Bukan email verifikasi (nggak relevan, udah verified dari atas) —
                 // ini notifikasi "akun berhasil dibuat" versi Google, tanpa tombol
