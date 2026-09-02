@@ -33,7 +33,7 @@ new #[Layout('layouts.app')] class extends Component {
             ],
         );
 
-        $sekolah = Sekolah::create($validated);
+        $sekolah = Sekolah::create([...$validated, 'kode_sekolah' => strtoupper($validated['kode_sekolah'])]);
 
         $user = Auth::user();
         $user->sekolah_id = $sekolah->id;
@@ -104,10 +104,8 @@ new #[Layout('layouts.app')] class extends Component {
                     <div>
                         <x-input-label for="kode_sekolah" value="Kode Sekolah" />
 
-                        <x-text-input wire:model="kode_sekolah"
-                            wire:input="$set('kode_sekolah', strtoupper($event.target.value))" id="kode_sekolah"
-                            type="text" class="mt-1.5 block w-full uppercase" placeholder="Contoh: SDN3RKST"
-                            autocomplete="off" />
+                        <x-text-input wire:model="kode_sekolah" id="kode_sekolah" type="text"
+                            class="mt-1.5 block w-full uppercase" placeholder="Contoh: SDN3RKST" autocomplete="off" />
 
                         <p class="mt-1.5 text-xs text-zinc-500">
                             Singkatan yang dipakai di format nomor surat. Boleh sama dengan sekolah lain.

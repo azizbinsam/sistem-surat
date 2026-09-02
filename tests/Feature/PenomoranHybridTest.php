@@ -210,4 +210,147 @@ class PenomoranHybridTest extends TestCase
         $this->assertStringContainsString('/0007/', $tengah->fresh()->nomor_npb);
         $this->assertStringContainsString('/0008/', $terbaru->fresh()->nomor_npb); // paling baru -> nomor terbesar
     }
+
+    // ===== Batalkan Nomor Surat (satuan) =====
+
+    public function test_batalkan_nomor_yang_terakhir_dikeluarkan_mengembalikan_counter(): void
+    {
+        $pegawai = \App\Models\Pegawai::create([
+            'sekolah_id' => $this->sekolah->id, 'nama' => 'Budi', 'jabatan' => 'Guru', 'kategori' => 'guru',
+        ]);
+        $transaksi = Transaksi::create([
+            'sekolah_id' => $this->sekolah->id,
+            'nomor_referensi_asal' => 'REF-1',
+            'tanggal_npb' => '2026-01-10',
+            'pihak_peminta_id' => $pegawai->id,
+            'status' => 'draft',
+        ]);
+
+        Volt::actingAs($this->user)->test('pages.transaksi.index')->call('generate', $transaksi->id, 'docx');
+
+        $this->assertSame(6, $this->tahunAnggaran->fresh()->nomor_urut_terakhir);
+        $this->assertStringContainsString('/0006/', $transaksi->fresh()->nomor_npb);
+
+        Volt::actingAs($this->user)->test('pages.transaksi.index')
+            ->call('mintaBatalkanNomor', $transaksi->id)
+            ->assertSet('nomorBisaDikembalikan', true)
+            ->call('eksekusiBatalkanNomor');
+
+        $transaksi->refresh();
+        $this->assertNull($transaksi->nomor_npb);
+        $this->assertNull($transaksi->nomor_spb);
+        $this->assertNull($transaksi->nomor_sppb);
+        $this->assertSame('draft', $transaksi->status);
+        $this->assertSame(5, $this->tahunAnggaran->fresh()->nomor_urut_terakhir);
+
+        Volt::actingAs($this->user)->test('pages.transaksi.index')->call('generate', $transaksi->id, 'docx');
+        $this->assertStringContainsString('/0006/', $transaksi->fresh()->nomor_npb);
+    }
+
+    public function test_batalkan_nomor_yang_bukan_terakhir_tidak_mengembalikan_counter(): void
+    {
+        $pegawai = \App\Models\Pegawai::create([
+            'sekolah_id' => $this->sekolah->id, 'nama' => 'Budi', 'jabatan' => 'Guru', 'kategori' => 'guru',
+        ]);
+        $transaksiSalah = Transaksi::create([
+            'sekolah_id' => $this->sekolah->id, 'nomor_referensi_asal' => 'REF-SALAH',
+            'tanggal_npb' => '2026-01-10', 'pihak_peminta_id' => $pegawai->id, 'status' => 'draft',
+        ]);
+        $transaksiSetelahnya = Transaksi::create([
+            'sekolah_id' => $this->sekolah->id, 'nomor_referensi_asal' => 'REF-SETELAHNYA',
+            'tanggal_npb' => '2026-01-11', 'pihak_peminta_id' => $pegawai->id, 'status' => 'draft',
+        ]);
+
+        Volt::actingAs($this->user)->test('pages.transaksi.index')->call('generate', $transaksiSalah->id, 'docx'); // nomor 0006
+        Volt::actingAs($this->user)->test('pages.transaksi.index')->call('generate', $transaksiSetelahnya->id, 'docx'); // nomor 0007
+
+        Volt::actingAs($this->user)->test('pages.transaksi.index')
+            ->call('mintaBatalkanNomor', $transaksiSalah->id)
+            ->assertSet('nomorBisaDikembalikan', false)
+            ->call('eksekusiBatalkanNomor');
+
+        $this->assertNull($transaksiSalah->fresh()->nomor_npb);
+        $this->assertSame(7, $this->tahunAnggaran->fresh()->nomor_urut_terakhir);
+        $this->assertStringContainsString('/0007/', $transaksiSetelahnya->fresh()->nomor_npb);
+    }
+
+    // ===== Batalkan Nomor Surat (bulk) =====
+
+    public function test_batalkan_nomor_bulk_untuk_beberapa_nomor_terakhir_sekaligus_reclaim_semua(): void
+    {
+        $pegawai = \App\Models\Pegawai::create([
+            'sekolah_id' => $this->sekolah->id, 'nama' => 'Budi', 'jabatan' => 'Guru', 'kategori' => 'guru',
+        ]);
+        $t1 = Transaksi::create(['sekolah_id' => $this->sekolah->id, 'nomor_referensi_asal' => 'REF-1', 'tanggal_npb' => '2026-01-01', 'pihak_peminta_id' => $pegawai->id, 'status' => 'draft']);
+        $t2 = Transaksi::create(['sekolah_id' => $this->sekolah->id, 'nomor_referensi_asal' => 'REF-2', 'tanggal_npb' => '2026-01-02', 'pihak_peminta_id' => $pegawai->id, 'status' => 'draft']);
+        $t3 = Transaksi::create(['sekolah_id' => $this->sekolah->id, 'nomor_referensi_asal' => 'REF-3', 'tanggal_npb' => '2026-01-03', 'pihak_peminta_id' => $pegawai->id, 'status' => 'draft']);
+
+        // Generate ketiganya berurutan -> jadi nomor 0006, 0007, 0008
+        foreach ([$t1, $t2, $t3] as $t) {
+            Volt::actingAs($this->user)->test('pages.transaksi.index')->call('generate', $t->id, 'docx');
+        }
+        $this->assertSame(8, $this->tahunAnggaran->fresh()->nomor_urut_terakhir);
+
+        // Batalkan semuanya sekaligus, urutan select sengaja diacak
+        Volt::actingAs($this->user)->test('pages.transaksi.index')
+            ->set('selected', [$t2->id, $t1->id, $t3->id])
+            ->call('mintaBatalkanNomorBulk')
+            ->assertSet('ringkasanBatalkanNomorBulk.bisa', fn($bisa) => count($bisa) === 3)
+            ->call('eksekusiBatalkanNomor');
+
+        // Ketiganya kereclaim semua -> counter balik ke 5 (state sebelum digenerate)
+        $this->assertSame(5, $this->tahunAnggaran->fresh()->nomor_urut_terakhir);
+        $this->assertNull($t1->fresh()->nomor_npb);
+        $this->assertNull($t2->fresh()->nomor_npb);
+        $this->assertNull($t3->fresh()->nomor_npb);
+        $this->assertSame('draft', $t1->fresh()->status);
+    }
+
+    public function test_batalkan_nomor_bulk_campuran_yang_bisa_dan_tidak_bisa_direclaim(): void
+    {
+        $pegawai = \App\Models\Pegawai::create([
+            'sekolah_id' => $this->sekolah->id, 'nama' => 'Budi', 'jabatan' => 'Guru', 'kategori' => 'guru',
+        ]);
+        $t1 = Transaksi::create(['sekolah_id' => $this->sekolah->id, 'nomor_referensi_asal' => 'REF-1', 'tanggal_npb' => '2026-01-01', 'pihak_peminta_id' => $pegawai->id, 'status' => 'draft']);
+        $t2 = Transaksi::create(['sekolah_id' => $this->sekolah->id, 'nomor_referensi_asal' => 'REF-2', 'tanggal_npb' => '2026-01-02', 'pihak_peminta_id' => $pegawai->id, 'status' => 'draft']);
+        $t3TidakDipilih = Transaksi::create(['sekolah_id' => $this->sekolah->id, 'nomor_referensi_asal' => 'REF-3', 'tanggal_npb' => '2026-01-03', 'pihak_peminta_id' => $pegawai->id, 'status' => 'draft']);
+
+        // Generate ketiganya -> 0006, 0007, 0008. Yang mau dibatalkan cuma t1 & t2,
+        // t3 (nomor terakhir, 0008) SENGAJA nggak ikut dipilih -- jadi t2 (0007)
+        // nggak bisa direclaim karena masih ada t3 (0008) di depannya.
+        foreach ([$t1, $t2, $t3TidakDipilih] as $t) {
+            Volt::actingAs($this->user)->test('pages.transaksi.index')->call('generate', $t->id, 'docx');
+        }
+
+        Volt::actingAs($this->user)->test('pages.transaksi.index')
+            ->set('selected', [$t1->id, $t2->id])
+            ->call('mintaBatalkanNomorBulk')
+            ->assertSet('ringkasanBatalkanNomorBulk.bisa', [])
+            ->assertSet('ringkasanBatalkanNomorBulk.tidak_bisa', fn($tb) => count($tb) === 2)
+            ->call('eksekusiBatalkanNomor');
+
+        // Counter TETAP 8 -- nggak ada yang direclaim, karena t3 (0008) masih ada
+        $this->assertSame(8, $this->tahunAnggaran->fresh()->nomor_urut_terakhir);
+        $this->assertNull($t1->fresh()->nomor_npb);
+        $this->assertNull($t2->fresh()->nomor_npb);
+        $this->assertStringContainsString('/0008/', $t3TidakDipilih->fresh()->nomor_npb); // nggak keganggu
+    }
+
+    // ===== Regresi: checkbox baris harus wire:model.live, bukan wire:model
+    // deferred — kalau deferred, bulk bar (Hapus/Batalkan Terpilih) nggak
+    // langsung muncul pas centang satu-satu, cuma nyala kalau klik "select all"
+    // (karena "select all" pakai wire:click yang emang langsung ngerequest) =====
+
+    public function test_checkbox_baris_pakai_wire_model_live_bukan_deferred(): void
+    {
+        $pegawai = \App\Models\Pegawai::create([
+            'sekolah_id' => $this->sekolah->id, 'nama' => 'Budi', 'jabatan' => 'Guru', 'kategori' => 'guru',
+        ]);
+        Transaksi::create(['sekolah_id' => $this->sekolah->id, 'nomor_referensi_asal' => 'REF-1', 'tanggal_npb' => '2026-01-01', 'pihak_peminta_id' => $pegawai->id, 'status' => 'draft']);
+
+        $html = Volt::actingAs($this->user)->test('pages.transaksi.index')->html();
+
+        $this->assertStringContainsString('wire:model.live="selected"', $html);
+        $this->assertStringNotContainsString('wire:model="selected"', $html);
+    }
 }

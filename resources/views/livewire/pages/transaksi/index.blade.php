@@ -132,6 +132,142 @@ new #[Layout('layouts.app')] class extends Component {
         $this->batalHapus();
     }
 
+    // ===== Batalkan nomor surat (satuan & bulk) — buat kasus salah generate
+    // (kode sekolah/nomor urut yang keliru pas surat itu dibuat) =====
+    public ?int $idBatalkanNomor = null;
+    public bool $modeBatalkanNomorBulk = false;
+    public bool $modalBatalkanNomorTampil = false;
+    public bool $nomorBisaDikembalikan = false; // dipakai mode satuan
+    public string $nomorNpbAkanDibatalkan = ''; // dipakai mode satuan
+    public array $ringkasanBatalkanNomorBulk = ['bisa' => [], 'tidak_bisa' => []]; // dipakai mode bulk
+
+    public function mintaBatalkanNomor(int $id): void
+    {
+        $transaksi = Transaksi::where('sekolah_id', auth()->user()->sekolah_id)
+            ->with('tahunAnggaran')
+            ->findOrFail($id);
+
+        if (!$transaksi->nomor_npb) {
+            return;
+        }
+
+        $urutTransaksiIni = (int) explode('/', $transaksi->nomor_npb)[1];
+
+        $this->idBatalkanNomor = $id;
+        $this->modeBatalkanNomorBulk = false;
+        $this->nomorNpbAkanDibatalkan = $transaksi->nomor_npb;
+        // Cuma boleh "dikembalikan" ke antrian urut kalau ini beneran nomor
+        // TERAKHIR yang dikeluarin di tahun anggaran itu — kalau udah ada surat
+        // lain sesudahnya, jangan disentuh sama sekali (hindari nomor bentrok).
+        $this->nomorBisaDikembalikan = $urutTransaksiIni === (int) $transaksi->tahunAnggaran->nomor_urut_terakhir;
+        $this->modalBatalkanNomorTampil = true;
+    }
+
+    public function mintaBatalkanNomorBulk(): void
+    {
+        if (empty($this->selected)) {
+            return;
+        }
+
+        $sekolahId = auth()->user()->sekolah_id;
+        $transaksiList = Transaksi::where('sekolah_id', $sekolahId)->whereIn('id', $this->selected)->whereNotNull('nomor_npb')->with('tahunAnggaran')->get();
+
+        if ($transaksiList->isEmpty()) {
+            $this->errorMsg = 'Transaksi yang dipilih belum ada yang punya nomor surat.';
+            return;
+        }
+
+        $this->ringkasanBatalkanNomorBulk = $this->simulasikanBatalkanNomorBulk($transaksiList);
+        $this->modeBatalkanNomorBulk = true;
+        $this->modalBatalkanNomorTampil = true;
+    }
+
+    /**
+     * Simulasi urutan reclaim nomor TANPA nulis ke DB — buat preview di modal
+     * konfirmasi sebelum user beneran eksekusi. Diproses per tahun anggaran
+     * (jaga-jaga kalau yang di-select ada dari tahun anggaran beda), dan
+     * dalam tiap grup diurutkan dari nomor TERBESAR ke TERKECIL biar reclaim-nya
+     * maksimal (misal 3 nomor terakhir yang dibatalkan sekaligus, semuanya bisa
+     * kereclaim beruntun, bukan cuma yang paling besar doang).
+     */
+    protected function simulasikanBatalkanNomorBulk(\Illuminate\Support\Collection $transaksiList): array
+    {
+        $bisa = [];
+        $tidakBisa = [];
+
+        foreach ($transaksiList->groupBy('tahun_anggaran_id') as $grup) {
+            $counterSimulasi = (int) $grup->first()->tahunAnggaran->nomor_urut_terakhir;
+            $terurut = $grup->sortByDesc(fn($t) => (int) explode('/', $t->nomor_npb)[1]);
+
+            foreach ($terurut as $t) {
+                $urut = (int) explode('/', $t->nomor_npb)[1];
+                if ($urut === $counterSimulasi) {
+                    $bisa[] = $t->nomor_npb;
+                    $counterSimulasi--;
+                } else {
+                    $tidakBisa[] = $t->nomor_npb;
+                }
+            }
+        }
+
+        return ['bisa' => $bisa, 'tidak_bisa' => $tidakBisa];
+    }
+
+    public function batalBatalkanNomor(): void
+    {
+        $this->idBatalkanNomor = null;
+        $this->modeBatalkanNomorBulk = false;
+        $this->nomorNpbAkanDibatalkan = '';
+        $this->nomorBisaDikembalikan = false;
+        $this->ringkasanBatalkanNomorBulk = ['bisa' => [], 'tidak_bisa' => []];
+        $this->modalBatalkanNomorTampil = false;
+    }
+
+    public function eksekusiBatalkanNomor(): void
+    {
+        $sekolahId = auth()->user()->sekolah_id;
+
+        if ($this->modeBatalkanNomorBulk) {
+            $transaksiList = Transaksi::where('sekolah_id', $sekolahId)->whereIn('id', $this->selected)->whereNotNull('nomor_npb')->with('tahunAnggaran')->get();
+
+            foreach ($transaksiList->groupBy('tahun_anggaran_id') as $grup) {
+                $tahunAnggaran = $grup->first()->tahunAnggaran;
+                $terurut = $grup->sortByDesc(fn($t) => (int) explode('/', $t->nomor_npb)[1]);
+
+                foreach ($terurut as $t) {
+                    $urut = (int) explode('/', $t->nomor_npb)[1];
+                    if ($urut === (int) $tahunAnggaran->nomor_urut_terakhir) {
+                        $tahunAnggaran->decrement('nomor_urut_terakhir');
+                        $tahunAnggaran->refresh();
+                    }
+                }
+            }
+
+            Transaksi::where('sekolah_id', $sekolahId)
+                ->whereIn('id', $this->selected)
+                ->whereNotNull('nomor_npb')
+                ->update(['nomor_npb' => null, 'nomor_spb' => null, 'nomor_sppb' => null, 'tanggal_spb' => null, 'tanggal_sppb' => null, 'status' => 'draft']);
+
+            session()->flash('success', 'Nomor surat terpilih berhasil dibatalkan.');
+            $this->selected = [];
+        } else {
+            $transaksi = Transaksi::where('sekolah_id', $sekolahId)->with('tahunAnggaran')->findOrFail($this->idBatalkanNomor);
+
+            if ($transaksi->nomor_npb) {
+                $urutTransaksiIni = (int) explode('/', $transaksi->nomor_npb)[1];
+
+                if ($urutTransaksiIni === (int) $transaksi->tahunAnggaran->nomor_urut_terakhir) {
+                    $transaksi->tahunAnggaran->decrement('nomor_urut_terakhir');
+                }
+            }
+
+            $transaksi->update(['nomor_npb' => null, 'nomor_spb' => null, 'nomor_sppb' => null, 'tanggal_spb' => null, 'tanggal_sppb' => null, 'status' => 'draft']);
+            session()->flash('success', 'Nomor surat berhasil dibatalkan. Generate ulang buat dapat nomor baru.');
+        }
+
+        $this->batalBatalkanNomor();
+    }
+
     public function generate(int $transaksiId, string $format, NomorSuratService $nomorService, SuratWordGenerator $wordGenerator, SuratPdfGenerator $pdfGenerator)
     {
         $this->errorMsg = null;
@@ -314,6 +450,9 @@ new #[Layout('layouts.app')] class extends Component {
                 <button wire:click="mintaHapusBulk"
                     class="px-3 py-1.5 bg-red-600 text-white text-xs font-medium rounded-lg hover:bg-red-500">Hapus
                     Terpilih</button>
+                <button wire:click="mintaBatalkanNomorBulk"
+                    class="px-3 py-1.5 bg-amber-600 text-white text-xs font-medium rounded-lg hover:bg-amber-500">Batalkan
+                    Nomor Terpilih</button>
             </div>
         </div>
     @endif
@@ -343,7 +482,7 @@ new #[Layout('layouts.app')] class extends Component {
             <tbody class="divide-y divide-zinc-100">
                 @forelse ($daftarTransaksi as $t)
                     <tr wire:key="transaksi-{{ $t->id }}" class="hover:bg-zinc-50">
-                        <td class="pl-4 pr-2 py-2"><input type="checkbox" class="rounded" wire:model="selected"
+                        <td class="pl-4 pr-2 py-2"><input type="checkbox" class="rounded" wire:model.live="selected"
                                 value="{{ $t->id }}">
                         </td>
                         <td class="px-4 py-3 text-sm font-medium text-zinc-900">{{ $t->nomor_referensi_asal }}</td>
@@ -380,17 +519,27 @@ new #[Layout('layouts.app')] class extends Component {
                                 {{ ucfirst($t->status) }}
                             </span>
                         </td>
-                        <td class="px-4 py-3 text-sm text-right space-x-1 whitespace-nowrap">
-                            <a href="{{ route('transaksi.edit', $t) }}" wire:navigate
-                                class="text-zinc-500 hover:text-emerald-600 font-medium">Edit</a>
-                            <button wire:click="generate({{ $t->id }}, 'docx')" wire:loading.attr="disabled"
-                                wire:target="generate({{ $t->id }}, 'docx')"
-                                class="text-zinc-500 hover:text-emerald-600 font-medium">Word</button>
-                            <button wire:click="generate({{ $t->id }}, 'pdf')" wire:loading.attr="disabled"
-                                wire:target="generate({{ $t->id }}, 'pdf')"
-                                class="text-zinc-500 hover:text-emerald-600 font-medium">PDF</button>
-                            <button wire:click="mintaHapusSatuan({{ $t->id }})"
-                                class="text-red-500 hover:text-red-700 font-medium">Hapus</button>
+                        <td class="px-4 py-3 text-sm text-right">
+                            <x-action-dropdown>
+                                <a href="{{ route('transaksi.edit', $t) }}" wire:navigate
+                                    class="block px-4 py-2 text-sm text-zinc-700 hover:bg-zinc-50">Edit</a>
+                                <button wire:click="generate({{ $t->id }}, 'docx')" wire:loading.attr="disabled"
+                                    wire:target="generate({{ $t->id }}, 'docx')"
+                                    class="block w-full text-left px-4 py-2 text-sm text-zinc-700 hover:bg-zinc-50">Generate
+                                    Word</button>
+                                <button wire:click="generate({{ $t->id }}, 'pdf')" wire:loading.attr="disabled"
+                                    wire:target="generate({{ $t->id }}, 'pdf')"
+                                    class="block w-full text-left px-4 py-2 text-sm text-zinc-700 hover:bg-zinc-50">Generate
+                                    PDF</button>
+                                @if ($t->nomor_npb)
+                                    <button wire:click="mintaBatalkanNomor({{ $t->id }})"
+                                        class="block w-full text-left px-4 py-2 text-sm text-amber-700 hover:bg-amber-50">Batalkan
+                                        Nomor</button>
+                                @endif
+                                <div class="border-t border-zinc-100 my-1"></div>
+                                <button wire:click="mintaHapusSatuan({{ $t->id }})"
+                                    class="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50">Hapus</button>
+                            </x-action-dropdown>
                         </td>
                     </tr>
                 @empty
@@ -444,4 +593,92 @@ new #[Layout('layouts.app')] class extends Component {
             </div>
         @endif
     </x-modal-konfirmasi-hapus>
+
+    @if ($modalBatalkanNomorTampil)
+        <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div class="absolute inset-0 bg-zinc-900/40" wire:click="batalBatalkanNomor"></div>
+
+            <div class="relative bg-white rounded-xl shadow-xl w-full max-w-md p-6"
+                @keydown.escape.window="$wire.batalBatalkanNomor()">
+                <div class="flex items-start gap-3 mb-1">
+                    <div class="w-10 h-10 rounded-full bg-amber-50 flex items-center justify-center shrink-0">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
+                            fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                            stroke-linejoin="round" class="text-amber-600">
+                            <path
+                                d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z">
+                            </path>
+                            <line x1="12" y1="9" x2="12" y2="13"></line>
+                            <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                        </svg>
+                    </div>
+                    <div class="min-w-0 pt-1.5">
+                        <h3 class="font-semibold text-zinc-900">
+                            {{ $modeBatalkanNomorBulk ? 'Batalkan ' . (count($ringkasanBatalkanNomorBulk['bisa']) + count($ringkasanBatalkanNomorBulk['tidak_bisa'])) . ' Nomor Surat?' : 'Batalkan Nomor Surat?' }}
+                        </h3>
+                    </div>
+                </div>
+
+                <div class="text-sm text-zinc-600 mt-3 pl-[52px] space-y-3">
+                    @if ($modeBatalkanNomorBulk)
+                        <p>Nomor surat pada transaksi yang dipilih akan dikosongkan, statusnya balik jadi
+                            <strong>draft</strong>. Generate ulang buat dapat nomor baru setelah data diperbaiki.</p>
+
+                        @if (!empty($ringkasanBatalkanNomorBulk['bisa']))
+                            <div class="text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg p-2.5 text-xs">
+                                <p class="font-medium mb-1">✓ {{ count($ringkasanBatalkanNomorBulk['bisa']) }} nomor
+                                    bakal dikembalikan ke antrian urut:</p>
+                                <ul class="list-disc list-inside space-y-0.5">
+                                    @foreach ($ringkasanBatalkanNomorBulk['bisa'] as $nomor)
+                                        <li>{{ $nomor }}</li>
+                                    @endforeach
+                                </ul>
+                            </div>
+                        @endif
+
+                        @if (!empty($ringkasanBatalkanNomorBulk['tidak_bisa']))
+                            <div class="text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-2.5 text-xs">
+                                <p class="font-medium mb-1">⚠ {{ count($ringkasanBatalkanNomorBulk['tidak_bisa']) }}
+                                    nomor akan hilang permanen (sudah ada surat lain sesudahnya):</p>
+                                <ul class="list-disc list-inside space-y-0.5">
+                                    @foreach ($ringkasanBatalkanNomorBulk['tidak_bisa'] as $nomor)
+                                        <li>{{ $nomor }}</li>
+                                    @endforeach
+                                </ul>
+                            </div>
+                        @endif
+                    @else
+                        <p>Nomor <strong>{{ $nomorNpbAkanDibatalkan }}</strong> akan dikosongkan. Status transaksi
+                            ini balik jadi <strong>draft</strong>, dan kamu bisa generate ulang buat dapat nomor baru
+                            setelah data (kode sekolah, dsb.) diperbaiki.</p>
+
+                        @if ($nomorBisaDikembalikan)
+                            <p class="text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg p-2.5 text-xs">
+                                ✓ Ini nomor <strong>terakhir</strong> yang dikeluarkan — nomor urutnya bakal
+                                dikembalikan, jadi generate berikutnya bisa reuse nomor yang sama (nggak ada nomor
+                                yang bolong/kelewat).
+                            </p>
+                        @else
+                            <p class="text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-2.5 text-xs">
+                                ⚠ Sudah ada surat lain yang dibuat setelah ini — nomor urutnya <strong>tidak
+                                    bisa</strong> dikembalikan (demi menghindari nomor bentrok/duplikat). Nomor ini
+                                akan hilang permanen, generate berikutnya dapat nomor baru yang lebih besar.
+                            </p>
+                        @endif
+                    @endif
+                </div>
+
+                <div class="flex justify-end gap-2 mt-6">
+                    <button type="button" wire:click="batalBatalkanNomor"
+                        class="px-4 py-2 text-sm font-medium text-zinc-600 rounded-lg hover:bg-zinc-100">
+                        Batal
+                    </button>
+                    <button type="button" wire:click="eksekusiBatalkanNomor"
+                        class="px-4 py-2 text-sm font-medium text-white bg-amber-600 rounded-lg hover:bg-amber-500">
+                        Ya, Batalkan Nomor
+                    </button>
+                </div>
+            </div>
+        </div>
+    @endif
 </div>

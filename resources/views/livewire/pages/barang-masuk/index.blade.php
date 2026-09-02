@@ -208,13 +208,19 @@ new #[Layout('layouts.app')] class extends Component {
                 @forelse ($daftarBpu as $bpu)
                     <tr wire:key="bpu-{{ $bpu->id }}">
                         <td class="pl-4 pr-2 py-2">
-                            <input type="checkbox" class="rounded" wire:model="selected" value="{{ $bpu->id }}">
+                            <input type="checkbox" class="rounded" wire:model.live="selected"
+                                value="{{ $bpu->id }}">
                         </td>
                         <td class="px-4 py-2 text-sm font-medium">{{ $bpu->nomor_bpu }}</td>
                         <td class="px-4 py-2 text-sm">{{ $bpu->tanggal->format('d-m-Y') }}</td>
                         <td class="px-4 py-2 text-sm">{{ $bpu->items_count }} item</td>
                         <td class="px-4 py-2 text-sm text-gray-600">
-                            {{ $bpu->items->map(fn($i) => "{$i->masterBarang->nama_barang} ({$i->jumlah} {$i->satuan})")->implode(', ') }}
+                            <ul class="space-y-0.5">
+                                @foreach ($bpu->items as $item)
+                                    <li>{{ $item->masterBarang->nama_barang }} ({{ $item->jumlah }}
+                                        {{ $item->satuan }})</li>
+                                @endforeach
+                            </ul>
                         </td>
                         <td class="px-5 py-3.5 text-sm text-right space-x-3">
                             <a href="{{ route('barang-masuk.edit', $bpu) }}" wire:navigate

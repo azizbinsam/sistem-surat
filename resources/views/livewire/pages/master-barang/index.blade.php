@@ -146,8 +146,8 @@ new #[Layout('layouts.app')] class extends Component {
 
     <div class="mb-4 flex flex-col sm:flex-row gap-3">
         <div class="relative max-w-sm flex-1">
-            <svg class="w-4 h-4 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor"
-                viewBox="0 0 24 24">
+            <svg class="w-4 h-4 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2" fill="none"
+                stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                     d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
@@ -194,7 +194,8 @@ new #[Layout('layouts.app')] class extends Component {
                 @forelse ($daftarBarang as $barang)
                     <tr wire:key="barang-{{ $barang->id }}" class="hover:bg-zinc-50 transition">
                         <td class="pl-5 pr-2 py-3.5">
-                            <input type="checkbox" class="rounded" wire:model="selected" value="{{ $barang->id }}">
+                            <input type="checkbox" class="rounded" wire:model.live="selected"
+                                value="{{ $barang->id }}">
                         </td>
                         <td class="px-5 py-3.5 text-sm text-zinc-600 font-mono">{{ $barang->kode_barang }}</td>
                         <td class="px-5 py-3.5 text-sm font-medium text-zinc-900">{{ $barang->nama_barang }}</td>
@@ -224,7 +225,8 @@ new #[Layout('layouts.app')] class extends Component {
                             </p>
                             @if (!$search && !$filterKategori)
                                 <a href="{{ route('master-barang.create') }}" wire:navigate
-                                    class="text-sm text-emerald-600 font-medium hover:underline mt-1 inline-block">+ Tambah
+                                    class="text-sm text-emerald-600 font-medium hover:underline mt-1 inline-block">+
+                                    Tambah
                                     barang pertama</a>
                             @endif
                         </td>

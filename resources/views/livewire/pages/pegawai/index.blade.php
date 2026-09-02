@@ -195,7 +195,8 @@ new #[Layout('layouts.app')] class extends Component {
                 @forelse ($daftarPegawai as $pegawai)
                     <tr wire:key="pegawai-{{ $pegawai->id }}">
                         <td class="pl-4 pr-2 py-3">
-                            <input type="checkbox" class="rounded" wire:model="selected" value="{{ $pegawai->id }}">
+                            <input type="checkbox" class="rounded" wire:model.live="selected"
+                                value="{{ $pegawai->id }}">
                         </td>
                         <td class="px-4 py-3 text-sm font-medium text-zinc-900">{{ $pegawai->nama }}</td>
                         <td class="px-4 py-3 text-sm font-medium text-zinc-900">{{ $pegawai->nip ?? '-' }}</td>

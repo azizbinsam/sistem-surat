@@ -118,6 +118,12 @@ new #[Layout('layouts.app')] class extends Component {
             ],
         );
 
+        // Paksa uppercase di server — jangan andalkan transformasi client-side
+        // (pernah ada bug: kombinasi wire:model + wire:input yang saling rebutan
+        // nentuin nilai final, kadang hasil akhirnya nggak ke-uppercase).
+        $validated['kode_sekolah'] = strtoupper($validated['kode_sekolah']);
+        $this->kode_sekolah = $validated['kode_sekolah'];
+
         if ($this->logo_sekolah_baru) {
             if ($this->sekolah->logo_sekolah) {
                 Storage::disk('public')->delete($this->sekolah->logo_sekolah);
