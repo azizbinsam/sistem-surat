@@ -1,6 +1,8 @@
 <?php
 
 use App\Models\MasterBarang;
+use App\Models\BarangMasukItem;
+use App\Models\TransaksiItem;
 use Livewire\Attributes\Layout;
 use Livewire\Volt\Component;
 use Livewire\WithPagination;
@@ -56,10 +58,17 @@ new #[Layout('layouts.app')] class extends Component {
     /** Info barang yang lagi mau dihapus (mode satuan), buat ditampilin di modal. */
     public string $namaBarangDihapus = '';
     public string $kodeBarangDihapus = '';
+    public array $idBisaDihapusBulk = []; // subset dari $selected yang boleh dihapus (belum pernah dipakai)
+    public array $namaTidakBisaDihapusBulk = []; // buat ditampilin di modal, yang diblokir dan alasannya kenapa
 
     public function mintaHapusSatuan(int $id): void
     {
         $barang = MasterBarang::where('sekolah_id', auth()->user()->sekolah_id)->findOrFail($id);
+
+        if ($this->sudahDipakai($id)) {
+            session()->flash('error', "\"{$barang->nama_barang}\" sudah pernah dipakai di penerimaan barang atau transaksi keluar, jadi nggak bisa dihapus. Hapus data itu dulu kalau memang perlu, atau biarkan barangnya tetap ada.");
+            return;
+        }
 
         $this->idHapusSatuan = $id;
         $this->modeHapusBulk = false;
@@ -74,8 +83,34 @@ new #[Layout('layouts.app')] class extends Component {
             return;
         }
 
+        $sekolahId = auth()->user()->sekolah_id;
+        $barangList = MasterBarang::where('sekolah_id', $sekolahId)->whereIn('id', $this->selected)->get();
+
+        $bisaDihapus = [];
+        $tidakBisa = [];
+        foreach ($barangList as $barang) {
+            if ($this->sudahDipakai($barang->id)) {
+                $tidakBisa[] = $barang;
+            } else {
+                $bisaDihapus[] = $barang->id;
+            }
+        }
+
+        if (empty($bisaDihapus)) {
+            session()->flash('error', 'Semua barang yang dipilih sudah pernah dipakai di penerimaan barang atau transaksi keluar, jadi nggak ada yang bisa dihapus.');
+            return;
+        }
+
+        $this->idBisaDihapusBulk = $bisaDihapus;
+        $this->namaTidakBisaDihapusBulk = collect($tidakBisa)->pluck('nama_barang')->toArray();
         $this->modeHapusBulk = true;
         $this->modalHapusTampil = true;
+    }
+
+    /** Barang dianggap "sudah dipakai" kalau pernah tercatat di penerimaan barang ATAU transaksi keluar — soft delete bakal bikin relasi itu jadi null dan nge-crash generate surat, dashboard, dsb kalau tetap dihapus. */
+    protected function sudahDipakai(int $masterBarangId): bool
+    {
+        return BarangMasukItem::where('master_barang_id', $masterBarangId)->exists() || TransaksiItem::where('master_barang_id', $masterBarangId)->exists();
     }
 
     public function batalHapus(): void
@@ -85,6 +120,8 @@ new #[Layout('layouts.app')] class extends Component {
         $this->modalHapusTampil = false;
         $this->namaBarangDihapus = '';
         $this->kodeBarangDihapus = '';
+        $this->idBisaDihapusBulk = [];
+        $this->namaTidakBisaDihapusBulk = [];
     }
 
     public function eksekusiHapus(): void
@@ -92,8 +129,8 @@ new #[Layout('layouts.app')] class extends Component {
         $sekolahId = auth()->user()->sekolah_id;
 
         if ($this->modeHapusBulk) {
-            $jumlah = MasterBarang::where('sekolah_id', $sekolahId)->whereIn('id', $this->selected)->count();
-            MasterBarang::where('sekolah_id', $sekolahId)->whereIn('id', $this->selected)->delete(); // soft delete
+            $jumlah = count($this->idBisaDihapusBulk);
+            MasterBarang::where('sekolah_id', $sekolahId)->whereIn('id', $this->idBisaDihapusBulk)->delete(); // soft delete
             session()->flash('success', "{$jumlah} barang berhasil dihapus.");
             $this->selected = [];
         } else {
@@ -142,6 +179,11 @@ new #[Layout('layouts.app')] class extends Component {
     @if (session('success'))
         <div class="mb-4 p-3 bg-emerald-50 text-emerald-700 rounded-lg text-sm border border-emerald-100">
             {{ session('success') }}</div>
+    @endif
+
+    @if (session('error'))
+        <div class="mb-4 p-3 bg-red-50 text-red-700 rounded-lg text-sm border border-red-100">
+            {{ session('error') }}</div>
     @endif
 
     <div class="mb-4 flex flex-col sm:flex-row gap-3">
@@ -240,9 +282,22 @@ new #[Layout('layouts.app')] class extends Component {
         {{ $daftarBarang->links() }}
     </div>
 
-    <x-modal-konfirmasi-hapus :show="$modalHapusTampil" :title="$modeHapusBulk ? 'Hapus ' . count($selected) . ' Barang?' : 'Hapus Barang Ini?'">
+    <x-modal-konfirmasi-hapus :show="$modalHapusTampil" :title="$modeHapusBulk ? 'Hapus ' . count($idBisaDihapusBulk) . ' Barang?' : 'Hapus Barang Ini?'">
         @if ($modeHapusBulk)
-            <p>{{ count($selected) }} barang yang dipilih akan dihapus. Tindakan ini tidak bisa dibatalkan.</p>
+            <p>{{ count($idBisaDihapusBulk) }} barang akan dihapus. Tindakan ini tidak bisa dibatalkan.</p>
+
+            @if (!empty($namaTidakBisaDihapusBulk))
+                <div class="mt-3 p-2.5 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-700">
+                    <p class="font-medium mb-1">⚠ {{ count($namaTidakBisaDihapusBulk) }} barang lain yang kamu pilih
+                        DI-SKIP (nggak ikut dihapus) karena sudah pernah dipakai di penerimaan barang atau
+                        transaksi keluar:</p>
+                    <ul class="list-disc list-inside space-y-0.5">
+                        @foreach ($namaTidakBisaDihapusBulk as $nama)
+                            <li>{{ $nama }}</li>
+                        @endforeach
+                    </ul>
+                </div>
+            @endif
         @else
             <p><strong>{{ $namaBarangDihapus }}</strong> ({{ $kodeBarangDihapus }}) akan dihapus. Tindakan ini
                 tidak bisa dibatalkan.</p>

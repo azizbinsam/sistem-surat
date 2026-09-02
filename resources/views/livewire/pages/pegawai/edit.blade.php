@@ -191,7 +191,7 @@ new #[Layout('layouts.app')] class extends Component {
 
                         <button type="button" wire:click="mintaHapusTtd">
                             <div
-                                class="py-2 px-2 flex gap-2 text-xs text-red-600 rounded bg-red-50 flex items-center justify-center shrink-0">
+                                class="py-2 px-2 gap-2 text-xs text-red-600 rounded bg-red-50 flex items-center justify-center shrink-0">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14"
                                     viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                                     stroke-linecap="round" stroke-linejoin="round" class="text-red-600">

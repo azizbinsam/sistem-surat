@@ -212,4 +212,80 @@ class RapikanTampilanIndexTest extends TestCase
             ->set('perPage', '20')
             ->assertViewHas('daftarBarang', fn($p) => $p->currentPage() === 1);
     }
+
+    // ===== Proteksi: barang yang udah dipakai di penerimaan/transaksi keluar
+    // nggak boleh dihapus, karena bakal bikin relasi jadi null (crash pas
+    // generate surat, dashboard, dll) =====
+
+    public function test_barang_yang_sudah_dipakai_di_penerimaan_tidak_bisa_dihapus_satuan(): void
+    {
+        $barang = MasterBarang::create(['sekolah_id' => $this->sekolah->id, 'kode_barang' => 'A1', 'nama_barang' => 'Kertas HVS', 'satuan_default' => 'Rim']);
+        $bpu = BarangMasuk::create(['sekolah_id' => $this->sekolah->id, 'nomor_bpu' => 'BPU-1', 'tanggal' => '2026-01-01']);
+        $bpu->items()->create(['master_barang_id' => $barang->id, 'spesifikasi' => 'Standar', 'satuan' => 'Rim', 'jumlah' => 5]);
+
+        Volt::actingAs($this->user)->test('pages.master-barang.index')
+            ->call('mintaHapusSatuan', $barang->id)
+            ->assertSet('modalHapusTampil', false); // modal nggak jadi kebuka
+
+        $this->assertNotSoftDeleted($barang);
+    }
+
+    public function test_barang_yang_sudah_dipakai_di_transaksi_keluar_tidak_bisa_dihapus_satuan(): void
+    {
+        $barang = MasterBarang::create(['sekolah_id' => $this->sekolah->id, 'kode_barang' => 'A1', 'nama_barang' => 'Kertas HVS', 'satuan_default' => 'Rim']);
+        $pegawai = Pegawai::create(['sekolah_id' => $this->sekolah->id, 'nama' => 'Budi', 'jabatan' => 'Guru', 'kategori' => 'guru']);
+        $transaksi = \App\Models\Transaksi::create(['sekolah_id' => $this->sekolah->id, 'nomor_referensi_asal' => 'REF-1', 'tanggal_npb' => '2026-01-01', 'pihak_peminta_id' => $pegawai->id, 'status' => 'draft']);
+        $transaksi->items()->create(['master_barang_id' => $barang->id, 'spesifikasi' => 'Standar', 'satuan' => 'Rim', 'jumlah' => 1, 'keperluan' => 'x']);
+
+        Volt::actingAs($this->user)->test('pages.master-barang.index')
+            ->call('mintaHapusSatuan', $barang->id)
+            ->assertSet('modalHapusTampil', false);
+
+        $this->assertNotSoftDeleted($barang);
+    }
+
+    public function test_barang_yang_belum_pernah_dipakai_tetap_bisa_dihapus(): void
+    {
+        $barang = MasterBarang::create(['sekolah_id' => $this->sekolah->id, 'kode_barang' => 'A1', 'nama_barang' => 'Kertas HVS', 'satuan_default' => 'Rim']);
+
+        Volt::actingAs($this->user)->test('pages.master-barang.index')
+            ->call('mintaHapusSatuan', $barang->id)
+            ->assertSet('modalHapusTampil', true)
+            ->call('eksekusiHapus');
+
+        $this->assertSoftDeleted($barang);
+    }
+
+    public function test_hapus_bulk_skip_yang_sudah_dipakai_tapi_tetap_hapus_yang_belum(): void
+    {
+        $barangTerpakai = MasterBarang::create(['sekolah_id' => $this->sekolah->id, 'kode_barang' => 'A1', 'nama_barang' => 'Kertas HVS', 'satuan_default' => 'Rim']);
+        $barangAman = MasterBarang::create(['sekolah_id' => $this->sekolah->id, 'kode_barang' => 'A2', 'nama_barang' => 'Spidol', 'satuan_default' => 'Buah']);
+
+        $bpu = BarangMasuk::create(['sekolah_id' => $this->sekolah->id, 'nomor_bpu' => 'BPU-1', 'tanggal' => '2026-01-01']);
+        $bpu->items()->create(['master_barang_id' => $barangTerpakai->id, 'spesifikasi' => 'Standar', 'satuan' => 'Rim', 'jumlah' => 5]);
+
+        Volt::actingAs($this->user)->test('pages.master-barang.index')
+            ->set('selected', [$barangTerpakai->id, $barangAman->id])
+            ->call('mintaHapusBulk')
+            ->assertSet('idBisaDihapusBulk', [$barangAman->id])
+            ->assertSet('namaTidakBisaDihapusBulk', ['Kertas HVS'])
+            ->call('eksekusiHapus');
+
+        $this->assertNotSoftDeleted($barangTerpakai);
+        $this->assertSoftDeleted($barangAman);
+    }
+
+    public function test_hapus_bulk_semua_terpilih_udah_dipakai_tidak_ada_yang_kehapus(): void
+    {
+        $barang = MasterBarang::create(['sekolah_id' => $this->sekolah->id, 'kode_barang' => 'A1', 'nama_barang' => 'Kertas HVS', 'satuan_default' => 'Rim']);
+        $bpu = BarangMasuk::create(['sekolah_id' => $this->sekolah->id, 'nomor_bpu' => 'BPU-1', 'tanggal' => '2026-01-01']);
+        $bpu->items()->create(['master_barang_id' => $barang->id, 'spesifikasi' => 'Standar', 'satuan' => 'Rim', 'jumlah' => 5]);
+
+        Volt::actingAs($this->user)->test('pages.master-barang.index')
+            ->set('selected', [$barang->id])
+            ->call('mintaHapusBulk')
+            ->assertSet('modalHapusTampil', false);
+
+        $this->assertNotSoftDeleted($barang);
+    }
 }
