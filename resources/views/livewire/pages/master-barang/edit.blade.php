@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\MasterBarang;
+use Illuminate\Validation\Rule;
 use Livewire\Attributes\Layout;
 use Livewire\Volt\Component;
 
@@ -32,14 +33,27 @@ new #[Layout('layouts.app')] class extends Component {
 
     public function simpan(): void
     {
-        $validated = $this->validate([
-            'kode_barang' => ['required', 'string', 'max:100'],
-            'nama_barang' => ['required', 'string', 'max:255'],
-            'kategori' => ['nullable', 'string', 'max:255'],
-            'satuan_default' => ['required', 'string', 'max:50'],
-            'keperluan_default' => ['nullable', 'string', 'max:255'],
-            'spesifikasi_default' => ['nullable', 'string', 'max:255'],
-        ]);
+        $validated = $this->validate(
+            [
+                'kode_barang' => [
+                    'required',
+                    'string',
+                    'max:100',
+                    Rule::unique('master_barang', 'kode_barang')
+                        ->where('sekolah_id', auth()->user()->sekolah_id)
+                        ->whereNull('deleted_at')
+                        ->ignore($this->masterBarang->id),
+                ],
+                'nama_barang' => ['required', 'string', 'max:255'],
+                'kategori' => ['nullable', 'string', 'max:255'],
+                'satuan_default' => ['required', 'string', 'max:50'],
+                'keperluan_default' => ['nullable', 'string', 'max:255'],
+                'spesifikasi_default' => ['nullable', 'string', 'max:255'],
+            ],
+            [
+                'kode_barang.unique' => 'Kode barang ini sudah dipakai barang lain di sekolahmu.',
+            ],
+        );
 
         $this->masterBarang->update($validated);
 

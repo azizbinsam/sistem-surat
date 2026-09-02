@@ -20,16 +20,28 @@ new #[Layout('layouts.app')] class extends Component {
 
         $this->errorMsg = null;
 
+        // Sengaja TANPA DB::transaction() -- kita mau baris yang valid tetap kesimpan
+        // meskipun ada baris lain yang di-skip (kode barang udah ada) atau gagal.
+        // Duplikat sekarang di-skip di dalam MasterBarangImport::model(), bukan lagi
+        // bikin whole-file gagal; ValidationException di sini cuma buat baris yang
+        // beneran nggak lengkap (kode/nama/satuan kosong).
+        $importer = new MasterBarangImport(auth()->user()->sekolah_id);
+
         try {
-            \Illuminate\Support\Facades\DB::transaction(function () {
-                Excel::import(new MasterBarangImport(auth()->user()->sekolah_id), $this->file);
-            });
-            session()->flash('success', 'Import berhasil.');
-            $this->redirect(route('master-barang.index'), navigate: true);
+            Excel::import($importer, $this->file);
         } catch (\Maatwebsite\Excel\Validators\ValidationException $e) {
-            $errors = collect($e->failures())->map(fn($f) => "Baris {$f->row()}: " . implode(', ', $f->errors()))->implode(' | ');
-            $this->errorMsg = $errors;
+            $this->errorMsg = collect($e->failures())->map(fn($f) => "Baris {$f->row()}: " . implode(', ', $f->errors()))->implode(' | ');
+            return;
         }
+
+        $pesan = "{$importer->jumlahDitambahkan()} barang berhasil ditambahkan.";
+
+        if (!empty($importer->dilewati())) {
+            $pesan .= ' ⚠ ' . count($importer->dilewati()) . ' barang dilewati karena kodenya sudah terdaftar.';
+        }
+
+        session()->flash('success', $pesan);
+        $this->redirect(route('master-barang.index'), navigate: true);
     }
 }; ?>
 
