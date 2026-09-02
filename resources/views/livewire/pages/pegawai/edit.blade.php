@@ -62,6 +62,35 @@ new #[Layout('layouts.app')] class extends Component {
         session()->flash('success', 'Pegawai berhasil diperbarui.');
         $this->redirect(route('pegawai.index'), navigate: true);
     }
+
+    // ===== Hapus tanda tangan (tanpa ganti dengan yang baru) — buat kasus
+    // pegawai yang balik mau pakai tanda tangan basah aja =====
+    public bool $modalHapusTtdTampil = false;
+
+    public function mintaHapusTtd(): void
+    {
+        if (!$this->pegawai->ttd_path) {
+            return;
+        }
+
+        $this->modalHapusTtdTampil = true;
+    }
+
+    public function batalHapusTtd(): void
+    {
+        $this->modalHapusTtdTampil = false;
+    }
+
+    public function eksekusiHapusTtd(): void
+    {
+        if ($this->pegawai->ttd_path) {
+            Storage::disk('public')->delete($this->pegawai->ttd_path);
+            $this->pegawai->update(['ttd_path' => null]);
+        }
+
+        $this->modalHapusTtdTampil = false;
+        session()->flash('success', 'Tanda tangan berhasil dihapus.');
+    }
 }; ?>
 
 <div class="max-w-3xl">
@@ -149,14 +178,32 @@ new #[Layout('layouts.app')] class extends Component {
                 <x-input-label value="Tanda Tangan Saat Ini" />
 
                 @if ($pegawai->ttd_path)
-                    <div
-                        class="mt-2 inline-flex items-center justify-center
-                        min-w-40 h-24 px-4 border border-zinc-200
-                        rounded-lg bg-zinc-50">
+                    <div class="mt-2 flex items-start gap-3">
+                        <div
+                            class="inline-flex items-center justify-center
+                            min-w-40 h-24 px-4 border border-zinc-200
+                            rounded-lg bg-zinc-50">
 
-                        <img src="{{ Storage::url($pegawai->ttd_path) }}" class="max-h-20 max-w-56 object-contain"
-                            alt="Tanda tangan saat ini">
+                            <img src="{{ Storage::url($pegawai->ttd_path) }}" class="max-h-20 max-w-56 object-contain"
+                                alt="Tanda tangan saat ini">
 
+                        </div>
+
+                        <button type="button" wire:click="mintaHapusTtd">
+                            <div
+                                class="py-2 px-2 flex gap-2 text-xs text-red-600 rounded bg-red-50 flex items-center justify-center shrink-0">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14"
+                                    viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                    stroke-linecap="round" stroke-linejoin="round" class="text-red-600">
+                                    <path d="M3 6h18"></path>
+                                    <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                                    <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path>
+                                    <line x1="10" y1="11" x2="10" y2="17"></line>
+                                    <line x1="14" y1="11" x2="14" y2="17"></line>
+                                </svg>
+                                Hapus tanda tangan
+                            </div>
+                        </button>
                     </div>
                 @else
                     <div class="mt-2 flex items-center gap-2 text-sm text-zinc-500">
@@ -238,5 +285,11 @@ new #[Layout('layouts.app')] class extends Component {
         </div>
 
     </form>
+
+    <x-modal-konfirmasi-hapus :show="$modalHapusTtdTampil" title="Hapus Tanda Tangan?" cancel-method="batalHapusTtd"
+        confirm-method="eksekusiHapusTtd" confirm-label="Ya, Hapus">
+        <p>Tanda tangan <strong>{{ $pegawai->nama }}</strong> akan dihapus. Surat yang di-generate setelah ini
+            nggak akan nampilin tanda tangan digital — cuma nyisain ruang kosong buat tanda tangan basah.</p>
+    </x-modal-konfirmasi-hapus>
 
 </div>
