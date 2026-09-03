@@ -184,4 +184,36 @@ class PersediaanServiceTest extends TestCase
 
         $this->assertSame(20, $sisa);
     }
+
+    /**
+     * Regresi: bug yang dilaporin user — dua transaksi dari upload Excel yang sama
+     * (satu file, diproses berturut-turut dalam 1 request) sering punya created_at
+     * IDENTIK sampai ke detik (presisi default MySQL). Dulu, karena tie-breaker-nya
+     * cuma created_at, transaksi kedua nggak nganggep transaksi pertama "udah
+     * kejadian duluan" — jadi "sisa sebelum transaksi" keduanya sama persis,
+     * padahal harusnya transaksi kedua sisanya udah kepotong sama transaksi pertama.
+     *
+     * Fix: totalKeluar() (Transaksi vs Transaksi, tabel yang SAMA) sekarang pakai
+     * id sebagai tie-breaker kalau created_at identik — id auto-increment selalu
+     * urut sesuai urutan insert, nggak kayak created_at yang presisinya cuma detik.
+     */
+    public function test_dua_transaksi_dari_upload_bulk_created_at_identik_sisa_tetap_progresif(): void
+    {
+        $this->buatBarangMasuk('2026-01-01', 45);
+
+        // Simulasikan upload Excel: 2 transaksi, tanggal_npb SAMA, created_at
+        // IDENTIK persis (kejadian umum kalau diproses dalam request/detik yang sama)
+        $transaksiPertama = $this->buatTransaksi('2026-02-01', 8, createdAt: '2026-02-01 10:00:00');
+        $transaksiKedua = $this->buatTransaksi('2026-02-01', 3, createdAt: '2026-02-01 10:00:00');
+
+        $sisaSebelumPertama = $this->service->sisaSebelumTransaksi($this->barang->id, $transaksiPertama);
+        $sisaSebelumKedua = $this->service->sisaSebelumTransaksi($this->barang->id, $transaksiKedua);
+
+        // Transaksi pertama: belum ada yang keluar sebelumnya -> sisa penuh 45
+        $this->assertSame(45, $sisaSebelumPertama);
+
+        // Transaksi kedua: HARUS udah kepotong 8 dari transaksi pertama (id-nya lebih
+        // kecil, walau created_at identik) -> sisa 37, BUKAN 45 lagi
+        $this->assertSame(37, $sisaSebelumKedua);
+    }
 }

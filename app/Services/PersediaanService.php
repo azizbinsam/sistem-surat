@@ -18,13 +18,27 @@ class PersediaanService
      *   "sisa sebelum transaksi X" — exclude transaksi itu sendiri & yang after dia.
      * - Kalau $cutoffCreatedAt null: baris dianggap "sudah ada" kalau tanggal <= cutoffTanggal
      *   (inklusif). Dipakai buat "sisa saat ini" (cutoff = hari ini).
+     *
+     * $idColumn + $cutoffId (opsional): tie-breaker PENGGANTI created_at, khusus buat
+     * perbandingan di tabel yang SAMA (misal Transaksi vs Transaksi lain). created_at
+     * MySQL presisinya cuma sampai DETIK — kalau banyak baris dibuat dalam request yang
+     * sama (upload Excel bulk), created_at-nya bisa identik dan tie-breaker itu gagal
+     * bedain mana yang duluan. id auto-increment selalu urut sesuai urutan insert,
+     * nggak peduli presisi timestamp, jadi lebih akurat buat kasus ini. TIDAK bisa
+     * dipakai buat perbandingan LINTAS tabel (misal BarangMasuk vs Transaksi) karena
+     * id di tabel beda itu 2 sequence independen yang nggak ada hubungan urutannya.
      */
-    protected function applyCutoff(Builder $query, string $dateColumn, Carbon $cutoffTanggal, ?Carbon $cutoffCreatedAt = null): Builder
+    protected function applyCutoff(Builder $query, string $dateColumn, Carbon $cutoffTanggal, ?Carbon $cutoffCreatedAt = null, ?string $idColumn = null, ?int $cutoffId = null): Builder
     {
-        return $query->where(function ($q) use ($dateColumn, $cutoffTanggal, $cutoffCreatedAt) {
+        return $query->where(function ($q) use ($dateColumn, $cutoffTanggal, $cutoffCreatedAt, $idColumn, $cutoffId) {
             $q->where($dateColumn, '<', $cutoffTanggal->toDateString());
 
-            if ($cutoffCreatedAt) {
+            if ($idColumn && $cutoffId !== null) {
+                $q->orWhere(function ($qq) use ($dateColumn, $cutoffTanggal, $idColumn, $cutoffId) {
+                    $qq->where($dateColumn, $cutoffTanggal->toDateString())
+                        ->where($idColumn, '<', $cutoffId);
+                });
+            } elseif ($cutoffCreatedAt) {
                 $q->orWhere(function ($qq) use ($dateColumn, $cutoffTanggal, $cutoffCreatedAt) {
                     $qq->where($dateColumn, $cutoffTanggal->toDateString())
                         ->where('created_at', '<', $cutoffCreatedAt);
@@ -59,13 +73,15 @@ class PersediaanService
         return (int) $query->sum('jumlah');
     }
 
-    public function totalKeluar(int $masterBarangId, ?Carbon $cutoffTanggal = null, ?Carbon $cutoffCreatedAt = null, ?int $excludeTransaksiId = null): int
+    public function totalKeluar(int $masterBarangId, ?Carbon $cutoffTanggal = null, ?Carbon $cutoffCreatedAt = null, ?int $excludeTransaksiId = null, ?int $cutoffTransaksiId = null): int
     {
         $query = TransaksiItem::where('master_barang_id', $masterBarangId);
 
         if ($cutoffTanggal) {
-            $query->whereHas('transaksi', function ($q) use ($cutoffTanggal, $cutoffCreatedAt, $excludeTransaksiId) {
-                $this->applyCutoff($q, 'tanggal_npb', $cutoffTanggal, $cutoffCreatedAt);
+            $query->whereHas('transaksi', function ($q) use ($cutoffTanggal, $cutoffCreatedAt, $excludeTransaksiId, $cutoffTransaksiId) {
+                // Transaksi vs Transaksi -> boleh pakai id sebagai tie-breaker
+                // (lihat penjelasan panjang di applyCutoff()).
+                $this->applyCutoff($q, 'tanggal_npb', $cutoffTanggal, $cutoffCreatedAt, idColumn: 'id', cutoffId: $cutoffTransaksiId);
 
                 if ($excludeTransaksiId) {
                     $q->where('id', '!=', $excludeTransaksiId);
@@ -100,6 +116,6 @@ class PersediaanService
 
         return $this->totalMasuk($masterBarangId, $cutoffTanggal, $cutoffCreatedAt)
             + $this->totalKoreksi($masterBarangId, $cutoffTanggal, $cutoffCreatedAt)
-            - $this->totalKeluar($masterBarangId, $cutoffTanggal, $cutoffCreatedAt, excludeTransaksiId: $transaksi->id);
+            - $this->totalKeluar($masterBarangId, $cutoffTanggal, $cutoffCreatedAt, excludeTransaksiId: $transaksi->id, cutoffTransaksiId: $transaksi->id);
     }
 }
