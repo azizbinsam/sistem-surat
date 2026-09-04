@@ -293,4 +293,9 @@ Ditemukan pas testing Fase 11: modul Persediaan/Transaksi masih kurang lengkap b
 ### 22 — Landing Page v2
 - [x] Desain ulang dari nol: hero, fitur, ajakan coba gratis, section donasi
 
+### 22.1 — Video Tutorial (playlist YouTube) di Landing Page
+- [x] Migration + model `VideoTutorial` (judul, deskripsi, url_youtube, urutan) — ID YouTube diekstrak otomatis dari berbagai bentuk link (watch/share/embed)
+- [x] Filament resource CRUD (pola sama kayak Rekening Donasi) — bisa lebih dari 1 video (playlist)
+- [x] Section di landing page: embed player YouTube beneran per video + judul & deskripsi, urut sesuai `urutan`, section disembunyikan total kalau belum ada video
+
 Detail command tiap fase (composer require spesifik, artisan make:model, dst) akan saya tulis lengkap pas kita mulai fase itu.

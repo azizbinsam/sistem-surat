@@ -11,6 +11,9 @@ Route::get('/', function () {
         'rekeningDonasi' => \Illuminate\Support\Facades\Schema::hasTable('rekening_donasi')
             ? \App\Models\RekeningDonasi::orderBy('urutan')->get()
             : collect(),
+        'videoTutorial' => \Illuminate\Support\Facades\Schema::hasTable('video_tutorial')
+            ? \App\Models\VideoTutorial::orderBy('urutan')->get()
+            : collect(),
     ]);
 })->name('welcome');
 

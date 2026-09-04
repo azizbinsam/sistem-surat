@@ -149,6 +149,42 @@
         </div>
     </section>
 
+    {{-- VIDEO TUTORIAL --}}
+    @if ($videoTutorial->isNotEmpty())
+        <section id="tutorial" class="py-24 scroll-mt-16">
+            <div class="max-w-5xl mx-auto px-6">
+                <div class="text-center mb-16">
+                    <span
+                        class="inline-block bg-emerald-50 text-emerald-600 text-xs font-semibold px-3 py-1 rounded-full mb-4">
+                        📺 Video Tutorial
+                    </span>
+                    <h2 class="text-2xl sm:text-3xl font-bold mb-3">Belajar Pakai Sistem Ini dari Video</h2>
+                    <p class="text-zinc-500">Panduan langkah demi langkah, dari upload data sampai generate surat.</p>
+                </div>
+                <div class="grid sm:grid-cols-2 gap-8">
+                    @foreach ($videoTutorial as $video)
+                        <div class="bg-white rounded-2xl border border-zinc-100 shadow-sm overflow-hidden">
+                            @if ($video->embed_url)
+                                <div class="aspect-video">
+                                    <iframe class="w-full h-full" src="{{ $video->embed_url }}"
+                                        title="{{ $video->judul }}" frameborder="0"
+                                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                        allowfullscreen></iframe>
+                                </div>
+                            @endif
+                            <div class="p-5">
+                                <h3 class="font-semibold mb-1">{{ $video->judul }}</h3>
+                                @if ($video->deskripsi)
+                                    <p class="text-sm text-zinc-500">{{ $video->deskripsi }}</p>
+                                @endif
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
+            </div>
+        </section>
+    @endif
+
     {{-- DONASI --}}
     @if ($rekeningDonasi->isNotEmpty())
         <section class="py-24">
