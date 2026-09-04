@@ -182,30 +182,82 @@ return [
     | sesuatu yang lebih ramah dibaca, seperti "Alamat E-Mail" daripada
     | "email". Ini cuma bantu bikin pesan kita lebih ekspresif.
     |
-    | Nama kolom di aplikasi ini rata-rata udah bahasa Indonesia, jadi
-    | otomatis kebaca wajar tanpa perlu di-override. Yang di-daftar di
-    | sini cuma field yang nama kolomnya bahasa Inggris/singkatan, atau
-    | field array (items.*.xxx) yang kalau nggak di-override jadi aneh
-    | dibaca (contoh: "items.0.jumlah").
+    | Laravel TIDAK otomatis kapital-in :attribute (fallback humanize dari
+    | nama kolom juga huruf kecil semua) — makanya di sini di-daftar LENGKAP
+    | semua field yang divalidasi di seluruh app (bukan cuma yang "perlu"
+    | di-override), masing-masing dengan Title Case yang rapi, biar pesan
+    | validasi di manapun konsisten kelihatan seperti kalimat utuh yang
+    | benar (contoh: "Nama Sekolah wajib diisi." bukan "nama sekolah wajib
+    | diisi.").
     |
     */
 
     'attributes' => [
-        'name' => 'nama',
-        'password_confirmation' => 'konfirmasi password',
-        'password_baru_confirmation' => 'konfirmasi password baru',
-        'master_barang_id' => 'barang',
-        'pihak_peminta_id' => 'pihak peminta',
-        'items' => 'daftar barang',
-        'items.*.master_barang_id' => 'barang',
-        'items.*.jumlah' => 'jumlah',
-        'items.*.satuan' => 'satuan',
-        'items.*.spesifikasi' => 'spesifikasi',
-        'items.*.keperluan' => 'keperluan',
-        'ttd' => 'tanda tangan',
-        'ttd_baru' => 'tanda tangan',
-        'logo_sekolah_baru' => 'logo sekolah',
-        'logo_kabupaten_baru' => 'logo kabupaten',
+        // Auth
+        'name' => 'Nama',
+        'email' => 'Email',
+        'password' => 'Password',
+        'password_confirmation' => 'Konfirmasi Password',
+        'token' => 'Token',
+
+        // Identitas sekolah (pengaturan & onboarding)
+        'nama_sekolah' => 'Nama Sekolah',
+        'kode_sekolah' => 'Kode Sekolah',
+        'npsn' => 'NPSN',
+        'nama_pemerintah' => 'Nama Pemerintah Daerah',
+        'nama_dinas' => 'Nama Dinas',
+        'nama_korwil' => 'Nama Korwil/UPTD',
+        'alamat' => 'Alamat',
+        'tempat' => 'Tempat',
+        'kontak_wa' => 'Kontak WA',
+        'jabatan_resmi_sppb' => 'Jabatan Resmi Penandatangan SPPB',
+        'kode_klasifikasi_surat' => 'Kode Klasifikasi Surat',
+        'nomor_urut_terakhir' => 'Nomor Urut Terakhir',
+        'logo_sekolah_baru' => 'Logo Sekolah',
+        'logo_kabupaten_baru' => 'Logo Kabupaten',
+
+        // Akun & password (pengaturan sekolah)
+        'nama_pengguna' => 'Nama',
+        'email_pengguna' => 'Email',
+        'password_baru' => 'Password Baru',
+        'password_baru_confirmation' => 'Konfirmasi Password Baru',
+
+        // Master barang
+        'kode_barang' => 'Kode Barang',
+        'nama_barang' => 'Nama Barang',
+        'kategori' => 'Kategori',
+        'satuan_default' => 'Satuan Default',
+        'keperluan_default' => 'Keperluan Default',
+        'spesifikasi_default' => 'Spesifikasi Default',
+
+        // Pegawai
+        'nama' => 'Nama',
+        'nip' => 'NIP',
+        'jabatan' => 'Jabatan',
+        'ttd' => 'Tanda Tangan',
+        'ttd_baru' => 'Tanda Tangan',
+
+        // Barang masuk (BPU) & transaksi keluar
+        'nomor_bpu' => 'Nomor BPU',
+        'tanggal' => 'Tanggal',
+        'tanggal_npb' => 'Tanggal NPB',
+        'nomor_referensi_asal' => 'Nomor Referensi Asal',
+        'pihak_peminta_id' => 'Pihak Peminta',
+        'items' => 'Daftar Barang',
+        'items.*.master_barang_id' => 'Barang',
+        'items.*.jumlah' => 'Jumlah',
+        'items.*.satuan' => 'Satuan',
+        'items.*.spesifikasi' => 'Spesifikasi',
+        'items.*.keperluan' => 'Keperluan',
+
+        // Koreksi stok
+        'master_barang_id' => 'Barang',
+        'jenis' => 'Jenis',
+        'jumlah' => 'Jumlah',
+        'alasan' => 'Alasan',
+
+        // Upload/import file
+        'file' => 'File',
     ],
 
 ];

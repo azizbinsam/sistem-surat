@@ -66,7 +66,7 @@ class ValidasiBahasaIndonesiaTest extends TestCase
             ->set('password', 'password123')
             ->set('password_confirmation', 'beda-sama-sekali')
             ->call('register')
-            ->assertSee('Konfirmasi password tidak cocok')
+            ->assertSee('Konfirmasi Password tidak cocok')
             ->assertDontSee('confirmation does not match');
     }
 
@@ -95,7 +95,7 @@ class ValidasiBahasaIndonesiaTest extends TestCase
         Volt::actingAs($this->user)
             ->test('pages.master-barang.create')
             ->call('simpan')
-            ->assertSee('Nama barang wajib diisi')
+            ->assertSee('Nama Barang wajib diisi')
             ->assertDontSee('The nama barang field is required');
     }
 
@@ -115,7 +115,7 @@ class ValidasiBahasaIndonesiaTest extends TestCase
         Volt::actingAs($userTanpaSekolah)
             ->test('pages.onboarding.lengkapi-profil')
             ->call('simpan')
-            ->assertSee('Nama sekolah wajib diisi')
+            ->assertSee('Nama Sekolah wajib diisi')
             ->assertDontSee('field is required');
     }
 
@@ -125,7 +125,7 @@ class ValidasiBahasaIndonesiaTest extends TestCase
             ->test('pages.pengaturan.sekolah')
             ->set('nama_sekolah', '')
             ->call('simpanProfil')
-            ->assertSee('Nama sekolah wajib diisi')
+            ->assertSee('Nama Sekolah wajib diisi')
             ->assertDontSee('field is required');
     }
 
@@ -135,7 +135,7 @@ class ValidasiBahasaIndonesiaTest extends TestCase
             ->test('pages.transaksi.create')
             ->set('nomor_referensi_asal', '')
             ->call('simpan')
-            ->assertSee('Nomor referensi asal wajib diisi')
+            ->assertSee('Nomor Referensi Asal wajib diisi')
             ->assertDontSee('field is required');
     }
 }
