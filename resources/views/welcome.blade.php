@@ -161,7 +161,7 @@
                     <h2 class="text-2xl sm:text-3xl font-bold mb-3">Belajar Pakai Sistem Ini dari Video</h2>
                     <p class="text-zinc-500">Panduan langkah demi langkah, dari upload data sampai generate surat.</p>
                 </div>
-                <div class="grid sm:grid-cols-2 gap-8">
+                <div class="grid sm:grid-cols-1 gap-8">
                     @foreach ($videoTutorial as $video)
                         <div class="bg-white rounded-2xl border border-zinc-100 shadow-sm overflow-hidden">
                             @if ($video->embed_url)
