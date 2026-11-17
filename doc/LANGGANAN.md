@@ -20,6 +20,8 @@ Terakhir diperbarui: 17 November 2026.
 | Payment gateway | **Fersaku dibatalkan.** Midtrans tidak dipakai. Otomatisasi nanti pakai **iPaymu** (Fase 29, opsional) |
 | Sekolah lama | Gratis untuk Tahun Anggaran 2026. Pembayaran mulai berlaku **2027** |
 | Kelonggaran | TW1–TW3 2026: gratis sampai **31 Jan 2027**. TW4 2026: gratis sampai **28 Feb 2027** |
+| Percobaan sekolah baru | **3 generate gratis** per sekolah, seumur akun |
+| Batas waktu invoice | **7 hari** |
 
 ## 2. Prinsip
 
@@ -190,9 +192,11 @@ Tampilan responsif memakai `<picture>` dengan `<source media="(min-width: 768px)
 
 Hanya dikerjakan bila verifikasi manual mulai memakan waktu. Yang berubah hanya langkah 6–7 di §5: bukti transfer diganti **webhook** (pemberitahuan otomatis dari server iPaymu) yang memicu persetujuan yang sama; kolom `invoice.metode` = `ipaymu`. Sebelum menulis kode: baca dokumentasi API resmi dan daftar biaya iPaymu, terutama **cara verifikasi signature webhook** (bagian keamanan kritis, jangan ditebak).
 
-## 14. Keputusan Terbuka
+## 14. Keputusan (17 November 2026)
 
-1. **Percobaan untuk sekolah baru (2027+)** — tanpa percobaan, sekolah baru tidak bisa merasakan nilai surat sebelum membayar. Usulan: **3 generate gratis** per sekolah (seumur akun). Belum diputuskan.
-2. **Batas waktu invoice** — usulan 7 hari. Bisa diubah.
-3. **Pengembalian dana / pencabutan hak** — saat ini tidak ada prosedur; admin dapat mencabut hak lewat Hak Triwulan.
-4. **Perubahan tanggal transaksi untuk menghindari pembayaran** — risiko diterima: tanggal tercetak di surat resmi dan memengaruhi pembukuan sekolah sendiri.
+Semua poin yang sebelumnya terbuka sudah diputuskan:
+
+1. **Percobaan sekolah baru (2027+): 3 generate gratis** per sekolah, seumur akun (bukan per tahun). Dihitung per **transaksi yang berhasil di-generate**; Batal Generate **tidak** mengembalikan kuota (supaya tidak bisa diakali). Kuota dicek setelah hak triwulan: bila triwulan sudah dibeli, kuota percobaan tidak terpakai. Implementasi: kolom `sekolah.generate_percobaan_terpakai` (default 0), batas 3 di konfigurasi.
+2. **Batas waktu invoice: 7 hari** sejak dibuat; lewat itu status `kedaluwarsa`.
+3. **Pencabutan hak:** admin dapat mencabut hak triwulan lewat resource **Hak Triwulan** (status `dicabut`). Tidak ada pengembalian dana otomatis; ditangani manual di luar sistem.
+4. **Perubahan tanggal transaksi untuk menghindari pembayaran:** risiko **diterima** — tanggal tercetak di surat resmi dan memengaruhi pembukuan sekolah sendiri.
