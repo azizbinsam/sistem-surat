@@ -151,7 +151,7 @@ class TransaksiSederhanakanUiTest extends TestCase
         $html = Volt::actingAs($this->user)->test('pages.transaksi.index')->html();
 
         $this->assertStringContainsString('Draft', $html);
-        $this->assertStringContainsString('Selesai', $html);
+        $this->assertStringContainsString('Sudah di-generate', $html);
     }
 
     public function test_pagination_pakai_view_custom(): void

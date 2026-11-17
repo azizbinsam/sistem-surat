@@ -4,16 +4,18 @@ use App\Models\Pegawai;
 use App\Models\Transaksi;
 use App\Services\NomorSuratService;
 use App\Services\PersediaanService;
-use App\Services\SuratPdfGenerator;
 use App\Services\SuratWordGenerator;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
 use Livewire\Attributes\Layout;
 use Livewire\Volt\Component;
 use Livewire\WithPagination;
 use App\Livewire\Concerns\HasCustomPagination;
+use App\Livewire\Concerns\FiltersByPeriode;
 
 new #[Layout('layouts.app')] class extends Component {
-    use WithPagination, HasCustomPagination;
+    use WithPagination, HasCustomPagination, FiltersByPeriode;
 
     public string $search = '';
     public string $filterStatus = '';
@@ -248,7 +250,7 @@ new #[Layout('layouts.app')] class extends Component {
                 ->whereNotNull('nomor_npb')
                 ->update(['nomor_npb' => null, 'nomor_spb' => null, 'nomor_sppb' => null, 'tanggal_spb' => null, 'tanggal_sppb' => null, 'status' => 'draft']);
 
-            session()->flash('success', 'Nomor surat terpilih berhasil dibatalkan.');
+            session()->flash('success', 'Generate transaksi terpilih berhasil dibatalkan. Statusnya kembali menjadi draft.');
             $this->selected = [];
         } else {
             $transaksi = Transaksi::where('sekolah_id', $sekolahId)->with('tahunAnggaran')->findOrFail($this->idBatalkanNomor);
@@ -262,13 +264,108 @@ new #[Layout('layouts.app')] class extends Component {
             }
 
             $transaksi->update(['nomor_npb' => null, 'nomor_spb' => null, 'nomor_sppb' => null, 'tanggal_spb' => null, 'tanggal_sppb' => null, 'status' => 'draft']);
-            session()->flash('success', 'Nomor surat berhasil dibatalkan. Generate ulang buat dapat nomor baru.');
+            session()->flash('success', 'Generate berhasil dibatalkan. Statusnya kembali menjadi draft; generate ulang untuk mendapat nomor baru.');
         }
 
         $this->batalBatalkanNomor();
     }
 
-    public function generate(int $transaksiId, string $format, NomorSuratService $nomorService, SuratWordGenerator $wordGenerator, SuratPdfGenerator $pdfGenerator)
+    // ===== GENERATE (buat nomor surat) — TIDAK mengunduh file. Unduh Word ada di method terpisah di bawah.
+    // Satu klik "Generate" = beri nomor NPB/SPB/SPPB + ubah status jadi "selesai".
+
+    public function generate(int $transaksiId, NomorSuratService $nomorService): void
+    {
+        $this->errorMsg = null;
+
+        $this->jalankanGenerate([$transaksiId], $nomorService, false);
+    }
+
+    public function generateBulk(NomorSuratService $nomorService): void
+    {
+        $this->errorMsg = null;
+
+        if (empty($this->selected)) {
+            $this->errorMsg = 'Pilih minimal 1 transaksi untuk generate.';
+            return;
+        }
+
+        $this->jalankanGenerate($this->selected, $nomorService, true);
+    }
+
+    /**
+     * Inti generate satuan & bulk. Semua perubahan dibungkus DB::transaction: kalau ada satu
+     * yang gagal di tengah jalan, SEMUANYA dibatalkan (nomor urut tidak "bolong" separuh jalan).
+     */
+    protected function jalankanGenerate(array $ids, NomorSuratService $nomorService, bool $bulk): void
+    {
+        $daftar = Transaksi::where('sekolah_id', auth()->user()->sekolah_id)
+            ->whereIn('id', $ids)
+            ->with('sekolah', 'tahunAnggaran')
+            // Nomor urut surat harus ngikutin kronologis tanggal transaksi, BUKAN urutan
+            // klik/pilih/halaman user pas nge-select checkbox. generateNomorNpb() cuma
+            // nge-increment counter polos sesuai urutan dipanggil, jadi urutan query di sini
+            // yang nentuin urutan penomoran akhirnya.
+            ->orderBy('tanggal_npb')
+            ->orderBy('id')
+            ->get();
+
+        // yang sudah "selesai" dilewati (nomornya sudah ada, tidak boleh dibuat ulang)
+        $belumGenerate = $daftar->where('status', '!=', 'selesai')->values();
+
+        if ($belumGenerate->isEmpty()) {
+            $this->errorMsg = $bulk
+                ? 'Semua transaksi yang dipilih sudah di-generate.'
+                : 'Transaksi ini sudah di-generate.';
+            return;
+        }
+
+        $belumMapping = $belumGenerate->filter(fn($t) => !$t->pihak_peminta_id);
+        if ($belumMapping->isNotEmpty()) {
+            $this->errorMsg = $bulk
+                ? 'Generate dibatalkan. Ada transaksi yang pihak pemintanya belum dipilih: ' . $belumMapping->pluck('nomor_referensi_asal')->implode(', ')
+                : 'Pihak yang meminta belum dipilih. Lengkapi dulu sebelum generate surat.';
+            return;
+        }
+
+        // FASE 24 (langganan triwulan): pengecekan "triwulan ini sudah dibeli?" dipasang di SINI,
+        // sebelum DB::transaction di bawah.
+
+        DB::transaction(function () use ($belumGenerate, $nomorService) {
+            foreach ($belumGenerate as $transaksi) {
+                // nomor_npb bisa sudah terisi (data historis dari Excel) — kalau begitu jangan dibuat ulang
+                if (!$transaksi->nomor_npb) {
+                    $nomorNpb = $nomorService->generateNomorNpb($transaksi->sekolah, $transaksi->tahunAnggaran, $transaksi->tanggal_npb);
+
+                    $transaksi->update([
+                        'nomor_npb' => $nomorNpb,
+                        'nomor_spb' => $nomorService->turunanSpb($nomorNpb),
+                        'nomor_sppb' => $nomorService->turunanSppb($nomorNpb),
+                        'tanggal_spb' => $transaksi->tanggal_npb,
+                        'tanggal_sppb' => $transaksi->tanggal_npb,
+                    ]);
+                }
+
+                $transaksi->update(['status' => 'selesai']);
+            }
+        });
+
+        $jumlah = $belumGenerate->count();
+        $dilewati = $daftar->count() - $jumlah;
+
+        if ($bulk) {
+            $pesan = "{$jumlah} transaksi berhasil di-generate. Klik \"Unduh Word (ZIP)\" untuk mengunduh suratnya.";
+            if ($dilewati > 0) {
+                $pesan .= " ({$dilewati} transaksi yang sudah di-generate dilewati.)";
+            }
+            session()->flash('success', $pesan);
+        } else {
+            session()->flash('success', 'Surat berhasil di-generate dengan nomor ' . $belumGenerate->first()->nomor_npb . '. Pakai menu aksi → Unduh Word untuk mengunduhnya.');
+        }
+    }
+
+    // ===== UNDUH WORD — bikin file dari data yang SUDAH di-generate, lalu download. Tidak mengubah nomor/status.
+
+    public function unduhWord(int $transaksiId, SuratWordGenerator $wordGenerator)
     {
         $this->errorMsg = null;
 
@@ -276,80 +373,47 @@ new #[Layout('layouts.app')] class extends Component {
             ->with('sekolah', 'tahunAnggaran')
             ->findOrFail($transaksiId);
 
-        if (!$transaksi->pihak_peminta_id) {
-            $this->errorMsg = 'Pihak yang meminta belum dipilih. Lengkapi dulu sebelum generate surat.';
+        if ($transaksi->status !== 'selesai' || !$transaksi->nomor_npb) {
+            $this->errorMsg = 'Surat ini belum di-generate. Klik Generate dulu sebelum mengunduh.';
             return;
         }
 
-        if (!$transaksi->nomor_npb) {
-            $nomorNpb = $nomorService->generateNomorNpb($transaksi->sekolah, $transaksi->tahunAnggaran, $transaksi->tanggal_npb);
-
-            $transaksi->update([
-                'nomor_npb' => $nomorNpb,
-                'nomor_spb' => $nomorService->turunanSpb($nomorNpb),
-                'nomor_sppb' => $nomorService->turunanSppb($nomorNpb),
-                'tanggal_spb' => $transaksi->tanggal_npb,
-                'tanggal_sppb' => $transaksi->tanggal_npb,
-            ]);
-            $transaksi->refresh();
-        }
-
-        $path = $format === 'pdf' ? $pdfGenerator->generate($transaksi) : $wordGenerator->generate($transaksi);
-
-        if ($transaksi->status !== 'selesai') {
-            $transaksi->update(['status' => 'selesai']);
-        }
+        $path = $wordGenerator->generate($transaksi);
 
         return response()->download($path)->deleteFileAfterSend(true);
     }
 
-    public function generateBulk(string $format, NomorSuratService $nomorService, SuratWordGenerator $wordGenerator, SuratPdfGenerator $pdfGenerator)
+    public function unduhWordBulk(SuratWordGenerator $wordGenerator)
     {
         $this->errorMsg = null;
 
         if (empty($this->selected)) {
-            $this->errorMsg = 'Pilih minimal 1 transaksi untuk generate bulk.';
+            $this->errorMsg = 'Pilih minimal 1 transaksi untuk diunduh.';
             return;
         }
 
-        $transaksiList = Transaksi::where('sekolah_id', auth()->user()->sekolah_id)
+        $daftar = Transaksi::where('sekolah_id', auth()->user()->sekolah_id)
             ->whereIn('id', $this->selected)
+            ->where('status', 'selesai')
+            ->whereNotNull('nomor_npb')
             ->with('sekolah', 'tahunAnggaran')
-            // Nomor urut surat harus ngikutin kronologis tanggal transaksi, BUKAN
-            // urutan klik/pilih/halaman user pas nge-select checkbox. generateNomorNpb()
-            // cuma nge-increment counter polos sesuai urutan dipanggil, jadi urutan
-            // query di sini yang nentuin urutan penomoran akhirnya.
             ->orderBy('tanggal_npb')
             ->orderBy('id')
             ->get();
 
-        $belumMapping = $transaksiList->filter(fn($t) => !$t->pihak_peminta_id);
-        if ($belumMapping->isNotEmpty()) {
-            $this->errorMsg = 'Ada transaksi yang pihak pemintanya belum dipilih: ' . $belumMapping->pluck('nomor_referensi_asal')->implode(', ');
+        if ($daftar->isEmpty()) {
+            $this->errorMsg = 'Belum ada transaksi terpilih yang sudah di-generate. Generate dulu sebelum mengunduh.';
             return;
         }
 
+        $dilewati = count($this->selected) - $daftar->count();
+
         $paths = [];
-        foreach ($transaksiList as $transaksi) {
-            if (!$transaksi->nomor_npb) {
-                $nomorNpb = $nomorService->generateNomorNpb($transaksi->sekolah, $transaksi->tahunAnggaran, $transaksi->tanggal_npb);
-                $transaksi->update([
-                    'nomor_npb' => $nomorNpb,
-                    'nomor_spb' => $nomorService->turunanSpb($nomorNpb),
-                    'nomor_sppb' => $nomorService->turunanSppb($nomorNpb),
-                    'tanggal_spb' => $transaksi->tanggal_npb,
-                    'tanggal_sppb' => $transaksi->tanggal_npb,
-                ]);
-                $transaksi->refresh();
-            }
-
-            $paths[] = $format === 'pdf' ? $pdfGenerator->generate($transaksi) : $wordGenerator->generate($transaksi);
-
-            if ($transaksi->status !== 'selesai') {
-                $transaksi->update(['status' => 'selesai']);
-            }
+        foreach ($daftar as $transaksi) {
+            $paths[] = $wordGenerator->generate($transaksi);
         }
 
+        File::ensureDirectoryExists(storage_path('app/generated'));
         $zipPath = storage_path('app/generated/bulk_surat_' . now()->timestamp . '.zip');
         $zip = new \ZipArchive();
         $zip->open($zipPath, \ZipArchive::CREATE);
@@ -361,7 +425,9 @@ new #[Layout('layouts.app')] class extends Component {
             @unlink($path);
         }
 
-        $this->selected = [];
+        if ($dilewati > 0) {
+            session()->flash('success', "{$daftar->count()} surat diunduh. {$dilewati} transaksi masih draft sehingga dilewati — generate dulu kalau mau ikut diunduh.");
+        }
 
         return response()->download($zipPath)->deleteFileAfterSend(true);
     }
@@ -370,7 +436,17 @@ new #[Layout('layouts.app')] class extends Component {
     {
         $sekolahId = auth()->user()->sekolah_id;
 
-        $query = Transaksi::where('sekolah_id', $sekolahId)->when($this->search, fn($q) => $q->where('nomor_referensi_asal', 'like', "%{$this->search}%")->orWhere('nomor_npb', 'like', "%{$this->search}%"))->when($this->filterStatus, fn($q) => $q->where('status', $this->filterStatus))->withCount('items')->with('items.masterBarang', 'pihakPeminta');
+        $query = Transaksi::where('sekolah_id', $sekolahId)
+            // orWhere WAJIB dibungkus closure: tanpa itu SQL jadi "sekolah_id=? AND ref LIKE ? OR nomor_npb LIKE ?"
+            // dan OR-nya melonggarkan filter sekolah_id.
+            ->when($this->search, fn($q) => $q->where(fn($w) => $w
+                ->where('nomor_referensi_asal', 'like', "%{$this->search}%")
+                ->orWhere('nomor_npb', 'like', "%{$this->search}%")))
+            ->when($this->filterStatus, fn($q) => $q->where('status', $this->filterStatus))
+            ->withCount('items')
+            ->with('items.masterBarang', 'pihakPeminta');
+
+        $query = $this->terapkanFilterPeriode($query, 'tanggal_npb');
 
         $daftarTransaksi = $query->orderBy($this->sortBy, $this->sortDir)->paginate($this->perPage === 'semua' ? 100000 : (int) $this->perPage);
 
@@ -389,6 +465,7 @@ new #[Layout('layouts.app')] class extends Component {
             'daftarPegawai' => Pegawai::where('sekolah_id', $sekolahId)->orderBy('nama')->get(),
             'jumlahDraft' => Transaksi::where('sekolah_id', $sekolahId)->where('status', 'draft')->count(),
             'jumlahSelesai' => Transaksi::where('sekolah_id', $sekolahId)->where('status', 'selesai')->count(),
+            'tahunPeriode' => $this->tahunPeriode(),
         ];
     }
 }; ?>
@@ -396,8 +473,8 @@ new #[Layout('layouts.app')] class extends Component {
 <div>
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
-            <h1 class="text-2xl font-bold text-zinc-900">Transaksi Keluar</h1>
-            <p class="text-sm text-zinc-500 mt-1">Kelola permintaan barang & generate surat.</p>
+            <h1 class="text-2xl font-bold text-zinc-900">Pengeluaran Barang</h1>
+            <p class="text-sm text-zinc-500 mt-1">Kelola permintaan barang, generate nomor surat, lalu unduh suratnya dalam format Word.</p>
         </div>
         <div class="flex gap-2">
             <a href="{{ route('transaksi.create') }}" wire:navigate>
@@ -432,27 +509,31 @@ new #[Layout('layouts.app')] class extends Component {
             class="w-full sm:w-56 py-2.5 border-zinc-200 rounded-lg shadow-sm text-sm focus:border-emerald-500 focus:ring-emerald-500">
             <option value="">Semua Status</option>
             <option value="draft">Draft ({{ $jumlahDraft }})</option>
-            <option value="selesai">Selesai ({{ $jumlahSelesai }})</option>
+            <option value="selesai">Sudah di-generate ({{ $jumlahSelesai }})</option>
         </select>
         <x-per-page-selector />
+    </div>
+
+    <div class="mb-4">
+        <x-filter-periode :tahun="$tahunPeriode" :aktif="$this->sedangFilterPeriode()" />
     </div>
 
     @if (count($selected) > 0)
         <div class="mb-3 p-3 bg-zinc-100 rounded-lg flex items-center justify-between">
             <span class="text-sm text-zinc-700">{{ count($selected) }} transaksi dipilih</span>
             <div class="space-x-2">
-                <button wire:click="generateBulk('docx')" wire:loading.attr="disabled"
-                    class="px-3 py-1.5 bg-zinc-800 text-white text-xs rounded-lg hover:bg-zinc-700">Generate Word
-                    (ZIP)</button>
-                <button wire:click="generateBulk('pdf')" wire:loading.attr="disabled"
-                    class="px-3 py-1.5 bg-zinc-600 text-white text-xs rounded-lg hover:bg-zinc-500">Generate PDF
+                <button wire:click="generateBulk" wire:loading.attr="disabled"
+                    class="px-3 py-1.5 bg-zinc-800 text-white text-xs rounded-lg hover:bg-zinc-700">Generate
+                    Terpilih</button>
+                <button wire:click="unduhWordBulk" wire:loading.attr="disabled"
+                    class="px-3 py-1.5 bg-emerald-600 text-white text-xs rounded-lg hover:bg-emerald-500">Unduh Word
                     (ZIP)</button>
                 <button wire:click="mintaHapusBulk"
                     class="px-3 py-1.5 bg-red-600 text-white text-xs font-medium rounded-lg hover:bg-red-500">Hapus
                     Terpilih</button>
                 <button wire:click="mintaBatalkanNomorBulk"
-                    class="px-3 py-1.5 bg-amber-600 text-white text-xs font-medium rounded-lg hover:bg-amber-500">Batalkan
-                    Nomor Terpilih</button>
+                    class="px-3 py-1.5 bg-amber-600 text-white text-xs font-medium rounded-lg hover:bg-amber-500">Batal
+                    Generate Terpilih</button>
             </div>
         </div>
     @endif
@@ -516,25 +597,27 @@ new #[Layout('layouts.app')] class extends Component {
                             <span
                                 class="px-2 py-0.5 rounded-full text-xs font-medium
                                 {{ $t->status === 'selesai' ? 'bg-emerald-100 text-emerald-700' : 'bg-zinc-100 text-zinc-600' }}">
-                                {{ ucfirst($t->status) }}
+                                {{ $t->status === 'selesai' ? 'Sudah di-generate' : 'Draft' }}
                             </span>
                         </td>
                         <td class="px-4 py-3 text-sm text-right">
                             <x-action-dropdown>
                                 <a href="{{ route('transaksi.edit', $t) }}" wire:navigate
                                     class="block px-4 py-2 text-sm text-zinc-700 hover:bg-zinc-50">Edit</a>
-                                <button wire:click="generate({{ $t->id }}, 'docx')" wire:loading.attr="disabled"
-                                    wire:target="generate({{ $t->id }}, 'docx')"
-                                    class="block w-full text-left px-4 py-2 text-sm text-zinc-700 hover:bg-zinc-50">Generate
-                                    Word</button>
-                                <button wire:click="generate({{ $t->id }}, 'pdf')" wire:loading.attr="disabled"
-                                    wire:target="generate({{ $t->id }}, 'pdf')"
-                                    class="block w-full text-left px-4 py-2 text-sm text-zinc-700 hover:bg-zinc-50">Generate
-                                    PDF</button>
+                                @if ($t->status !== 'selesai')
+                                    <button wire:click="generate({{ $t->id }})" wire:loading.attr="disabled"
+                                        wire:target="generate({{ $t->id }})"
+                                        class="block w-full text-left px-4 py-2 text-sm text-zinc-700 hover:bg-zinc-50">Generate</button>
+                                @else
+                                    <button wire:click="unduhWord({{ $t->id }})" wire:loading.attr="disabled"
+                                        wire:target="unduhWord({{ $t->id }})"
+                                        class="block w-full text-left px-4 py-2 text-sm text-emerald-700 hover:bg-emerald-50">Unduh
+                                        Word</button>
+                                @endif
                                 @if ($t->nomor_npb)
                                     <button wire:click="mintaBatalkanNomor({{ $t->id }})"
-                                        class="block w-full text-left px-4 py-2 text-sm text-amber-700 hover:bg-amber-50">Batalkan
-                                        Nomor</button>
+                                        class="block w-full text-left px-4 py-2 text-sm text-amber-700 hover:bg-amber-50">Batal
+                                        Generate</button>
                                 @endif
                                 <div class="border-t border-zinc-100 my-1"></div>
                                 <button wire:click="mintaHapusSatuan({{ $t->id }})"
@@ -551,13 +634,13 @@ new #[Layout('layouts.app')] class extends Component {
                                     d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
                             </svg>
                             <p class="text-sm text-zinc-500">
-                                @if ($search || $filterStatus)
+                                @if ($search || $filterStatus || $this->sedangFilterPeriode())
                                     Tidak ada transaksi yang cocok dengan pencarian/filter.
                                 @else
                                     Belum ada data transaksi.
                                 @endif
                             </p>
-                            @if (!$search && !$filterStatus)
+                            @if (!$search && !$filterStatus && !$this->sedangFilterPeriode())
                                 <a href="{{ route('transaksi.create') }}" wire:navigate
                                     class="text-sm text-emerald-600 font-medium hover:underline mt-1 inline-block">+
                                     Tambah
@@ -614,7 +697,7 @@ new #[Layout('layouts.app')] class extends Component {
                     </div>
                     <div class="min-w-0 pt-1.5">
                         <h3 class="font-semibold text-zinc-900">
-                            {{ $modeBatalkanNomorBulk ? 'Batalkan ' . (count($ringkasanBatalkanNomorBulk['bisa']) + count($ringkasanBatalkanNomorBulk['tidak_bisa'])) . ' Nomor Surat?' : 'Batalkan Nomor Surat?' }}
+                            {{ $modeBatalkanNomorBulk ? 'Batal Generate ' . (count($ringkasanBatalkanNomorBulk['bisa']) + count($ringkasanBatalkanNomorBulk['tidak_bisa'])) . ' Transaksi?' : 'Batal Generate Surat Ini?' }}
                         </h3>
                     </div>
                 </div>
@@ -675,10 +758,12 @@ new #[Layout('layouts.app')] class extends Component {
                     </button>
                     <button type="button" wire:click="eksekusiBatalkanNomor"
                         class="px-4 py-2 text-sm font-medium text-white bg-amber-600 rounded-lg hover:bg-amber-500">
-                        Ya, Batalkan Nomor
+                        Ya, Batal Generate
                     </button>
                 </div>
             </div>
         </div>
     @endif
+    <x-loading-overlay target="generate,generateBulk" pesan="Sedang generate nomor surat, mohon tunggu…" />
+    <x-loading-overlay target="unduhWord,unduhWordBulk" pesan="Sedang menyiapkan file Word, mohon tunggu…" />
 </div>

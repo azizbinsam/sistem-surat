@@ -13,8 +13,19 @@ new #[Layout('layouts.app')] class extends Component {
     public string $search = '';
     public string $sortBy = 'nama_barang';
     public string $sortDir = 'asc';
+    public string $perPage = '15';
 
     protected array $kolomBolehSort = ['nama_barang', 'kode_barang'];
+
+    public function updatingPerPage(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatingSearch(): void
+    {
+        $this->resetPage();
+    }
 
     public function sortir(string $kolom): void
     {
@@ -35,7 +46,7 @@ new #[Layout('layouts.app')] class extends Component {
         $daftarBarang = MasterBarang::where('sekolah_id', auth()->user()->sekolah_id)
             ->when($this->search, fn($q) => $q->where('nama_barang', 'like', "%{$this->search}%"))
             ->orderBy($this->sortBy, $this->sortDir)
-            ->paginate(15);
+            ->paginate(in_array($this->perPage, ['15', '25', '50', '100'], true) ? (int) $this->perPage : 15);
 
         // hitung ledger per barang di halaman ini aja (bukan semua barang sekaligus, biar ringan)
         $ringkasan = $daftarBarang->getCollection()->map(function ($barang) use ($service) {
@@ -75,6 +86,7 @@ new #[Layout('layouts.app')] class extends Component {
             <input wire:model.live.debounce.300ms="search" type="text" placeholder="Cari nama barang..."
                 class="w-full pl-10 pr-4 py-2.5 border-zinc-200 rounded-lg shadow-sm text-sm focus:border-emerald-500 focus:ring-emerald-500">
         </div>
+        <x-per-page-selector :options="[15, 25, 50, 100]" />
     </div>
 
     <div class="bg-white rounded-xl border border-zinc-100 shadow-sm overflow-hidden">

@@ -72,7 +72,7 @@ new class extends Component {
                             d="M12 20V8m0 0l-4 4m4-4l4 4M4 4h16" />
                     </svg>
                 </x-slot>
-                Transaksi Keluar
+                Pengeluaran Barang
             </x-sidebar-link>
 
             <div class="px-6 pt-4 pb-1 text-xs font-semibold text-zinc-500 uppercase tracking-wider">Lainnya</div>

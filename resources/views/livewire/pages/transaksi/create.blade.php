@@ -150,9 +150,9 @@ new #[Layout('layouts.app')] class extends Component {
             </svg>
             Kembali
         </a>
-        <h1 class="text-2xl font-bold text-zinc-900">Tambah Transaksi Keluar</h1>
+        <h1 class="text-2xl font-bold text-zinc-900">Tambah Pengeluaran Barang</h1>
         <p class="text-sm text-zinc-500 mt-1">
-            Tambahkan transaksi keluar sesuai dengan pembagiannya.
+            Tambahkan pengeluaran barang sesuai dengan pembagiannya.
         </p>
     </div>
 

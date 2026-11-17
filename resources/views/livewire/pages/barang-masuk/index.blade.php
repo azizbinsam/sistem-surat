@@ -7,9 +7,10 @@ use Livewire\Attributes\Layout;
 use Livewire\Volt\Component;
 use Livewire\WithPagination;
 use App\Livewire\Concerns\HasCustomPagination;
+use App\Livewire\Concerns\FiltersByPeriode;
 
 new #[Layout('layouts.app')] class extends Component {
-    use WithPagination, HasCustomPagination;
+    use WithPagination, HasCustomPagination, FiltersByPeriode;
 
     public string $search = '';
     public string $sortBy = 'tanggal';
@@ -134,13 +135,18 @@ new #[Layout('layouts.app')] class extends Component {
 
     public function with(): array
     {
+        $query = BarangMasuk::where('sekolah_id', auth()->user()->sekolah_id)
+            ->when($this->search, fn($q) => $q->where('nomor_bpu', 'like', "%{$this->search}%"))
+            ->withCount('items')
+            ->with('items'); // buat hitung total jumlah barang per BPU di view
+
+        $query = $this->terapkanFilterPeriode($query, 'tanggal');
+
         return [
-            'daftarBpu' => BarangMasuk::where('sekolah_id', auth()->user()->sekolah_id)
-                ->when($this->search, fn($q) => $q->where('nomor_bpu', 'like', "%{$this->search}%"))
-                ->withCount('items')
-                ->with('items') // buat hitung total jumlah barang per BPU di view
+            'daftarBpu' => $query
                 ->orderBy($this->sortBy, $this->sortDir)
                 ->paginate($this->perPage === 'semua' ? 100000 : (int) $this->perPage),
+            'tahunPeriode' => $this->tahunPeriode(),
         ];
     }
 }; ?>
@@ -176,6 +182,10 @@ new #[Layout('layouts.app')] class extends Component {
                 class="w-full pl-10 pr-4 py-2.5 border-zinc-200 rounded-lg shadow-sm text-sm focus:border-emerald-500 focus:ring-emerald-500">
         </div>
         <x-per-page-selector />
+    </div>
+
+    <div class="mb-4">
+        <x-filter-periode :tahun="$tahunPeriode" :aktif="$this->sedangFilterPeriode()" />
     </div>
 
     @if (count($selected) > 0)
@@ -238,13 +248,13 @@ new #[Layout('layouts.app')] class extends Component {
                                     d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
                             </svg>
                             <p class="text-sm text-zinc-500">
-                                @if ($search)
-                                    Tidak ada BPU yang cocok dengan pencarian.
+                                @if ($search || $this->sedangFilterPeriode())
+                                    Tidak ada BPU yang cocok dengan pencarian/filter.
                                 @else
                                     Belum ada data penerimaan barang.
                                 @endif
                             </p>
-                            @if (!$search)
+                            @if (!$search && !$this->sedangFilterPeriode())
                                 <a href="{{ route('barang-masuk.create') }}" wire:navigate
                                     class="text-sm text-emerald-600 font-medium hover:underline mt-1 inline-block">
                                     + Tambah
@@ -275,7 +285,7 @@ new #[Layout('layouts.app')] class extends Component {
                         <li>{{ $peringatan }}</li>
                     @endforeach
                 </ul>
-                <p class="text-xs text-amber-700 mt-1.5">Artinya udah ada transaksi keluar yang kepake dari barang
+                <p class="text-xs text-amber-700 mt-1.5">Artinya udah ada pengeluaran barang yang kepake dari barang
                     ini — cek dulu sebelum lanjut.</p>
             </div>
         @endif

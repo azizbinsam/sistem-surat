@@ -14,9 +14,9 @@ Sekolah (SDN) rutin bikin 3 surat berurutan tiap ada permintaan/pengeluaran bara
 Prosesnya saat ini manual (isi Word/Excel satu-satu). Tujuan produk ini: sekolah tinggal **upload data Excel**, sistem otomatis:
 1. Transpose data mentah jadi transaksi terstruktur
 2. Hitung sisa persediaan otomatis (ledger masuk-keluar)
-3. Generate 3 surat sekaligus (PDF/Word), siap cetak & tanda tangan
+3. Generate 3 surat sekaligus (Word), siap cetak & tanda tangan *(opsi PDF untuk surat dihapus di v2.0)*
 
-Model bisnis: **SaaS subscription** per sekolah (bulanan/tahunan), dijual oleh Delix Studio.
+Model bisnis: **SaaS subscription** per sekolah, dijual oleh Delix Studio. **Sejak v2.0: langganan per triwulan (Rp39.000) atau tahunan (Rp129.000) — detail lengkap di `doc/LANGGANAN.md`.**
 
 ---
 
@@ -31,9 +31,9 @@ Model bisnis: **SaaS subscription** per sekolah (bulanan/tahunan), dijual oleh D
 | Panel sekolah | Custom Livewire + Pines UI | Fleksibel untuk UX spesifik (mapping ajax, generate surat) |
 | Database | MySQL | Lokal: Laragon. Produksi: shared hosting (cPanel) |
 | Auth | Laravel Breeze/Fortify (email+password) + Laravel Socialite (Google OAuth) | Dua opsi login, sekolah bebas pilih |
-| Payment | Fersaku (QRIS) | Platform pembuatan halaman pembayaran QRIS Indonesia — lebih simpel dari Midtrans (1 endpoint API + webhook), fee 1%+Rp500 s/d 3% per transaksi tergantung tier. Detail teknis integrasi (auth header, format signature webhook) menyusul saat dokumentasi API-nya bisa diakses lagi |
+| Payment | Manual (transfer + verifikasi admin); iPaymu opsional belakangan | **Fersaku dibatalkan** dan Midtrans tidak dipakai (keputusan v2.0). Detail di `doc/LANGGANAN.md` §13 |
 | Import Excel | maatwebsite/excel (PhpSpreadsheet) | |
-| Export PDF | barryvdh/laravel-dompdf | |
+| Export PDF | barryvdh/laravel-dompdf | Sejak v2.0 hanya untuk **kwitansi pembayaran**, bukan lagi surat NPB/SPB/SPPB |
 | Export Word | phpoffice/phpword | |
 | Version control | Git + GitHub | |
 | Deployment | Shared hosting (cPanel) | |
@@ -124,7 +124,7 @@ Ringkasan: jumlah surat digenerate bulan ini, status subscription, alert stok ba
 - Format Kode SPPB (contoh: "FORMAT II.I.8")
 
 ### 5.8 Info Subscription
-- Status aktif/expired, tanggal berakhir, riwayat pembayaran, tombol perpanjang (redirect ke halaman pembayaran Fersaku)
+- **Diganti di v2.0:** halaman **Langganan** (status hak per triwulan, beli paket, invoice, upload bukti transfer, riwayat pembayaran) — lihat `doc/LANGGANAN.md` §5.
 
 ---
 
@@ -288,6 +288,8 @@ Hasil diskusi setelah Fase 14 selesai. Model bisnis, struktur data, dan beberapa
 
 ### 12.1 Model Bisnis: Gratis + Donasi (menggantikan sementara Fase 9)
 
+> **DIGANTIKAN oleh v2.0** (`doc/LANGGANAN.md`). Bagian ini dipertahankan sebagai catatan riwayat. Sekolah yang sudah terdaftar tetap gratis untuk Tahun Anggaran 2026; pembayaran mulai berlaku 2027.
+
 - Semua fitur bisa dipakai gratis tanpa subscription aktif. Middleware cek subscription (Fase 9) tetap ditunda — tidak ada gate apa pun.
 - Tombol/info donasi muncul di landing page dan dashboard.
 - Data rekening donasi (bank, nomor rekening, atas nama, foto bukti rekening — bisa lebih dari satu) diinput lewat **Panel Admin** (lihat §12.5), bukan per-sekolah, karena ini milik platform/Delix Studio.
@@ -384,3 +386,28 @@ Dipecah jadi beberapa fase kecil di `TASKS.md`, urutan (fondasi dulu karena bany
 - **Fase 20** — Panel Admin (buka tahun anggaran baru, nama app, logo app, rekening donasi)
 - **Fase 21** — Pengaturan Sekolah 2 kolom
 - **Fase 22** — Landing page v2
+
+---
+
+## 14. Langganan Triwulan & Perubahan v2.0
+
+Diputuskan setelah v1.1 berjalan. Semua detail ada di **`doc/LANGGANAN.md`**; ringkasan di sini:
+
+- Unit yang dijual = **hak generate surat per triwulan** (Triwulan Rp39.000, Tahunan Rp129.000). Paket Bulanan dihapus.
+- Yang dikunci hanya **Generate**; input data tetap bebas agar ledger stok tidak rusak.
+- Surat hanya **Word**. Tombol Generate dipisah dari Unduh Word; ada Batal Generate; loader saat proses.
+- Pembayaran manual dulu (invoice + kode unik + bukti transfer + verifikasi admin); iPaymu opsional belakangan; Fersaku dibatalkan.
+- Menu "Transaksi Keluar" diganti nama menjadi **Pengeluaran Barang** (hanya tampilan; nama route dan tabel tetap `transaksi`).
+- Filter rentang tanggal + triwulan di Penerimaan & Pengeluaran Barang; pilihan jumlah baris di Persediaan.
+- Panel Admin v2: data lengkap sekolah/user, invoice, hak triwulan, dashboard rinci, menu Banner.
+- Landing page v3 + banner responsif (desktop/ponsel).
+
+### 14.1 Urutan Eksekusi v2.0
+
+- **Fase 23** — Fondasi & revisi cepat
+- **Fase 24** — Langganan triwulan (manual)
+- **Fase 25** — Panel Admin v2
+- **Fase 26** — Banner
+- **Fase 27** — Landing page v3
+- **Fase 28** — Migrasi sekolah lama & peluncuran
+- **Fase 29** — iPaymu (opsional)

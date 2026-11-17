@@ -138,10 +138,11 @@ class PenomoranHybridTest extends TestCase
 
         $counterSebelum = $this->tahunAnggaran->fresh()->nomor_urut_terakhir;
 
-        // "Download ulang" — manggil generate() beneran lewat komponen index
+        // "Download ulang" — manggil unduhWord() beneran lewat komponen index
+        // (sejak Fase 23 generate() cuma bikin nomor; bikin/unduh file Word ada di unduhWord())
         Volt::actingAs($this->user)
             ->test('pages.transaksi.index')
-            ->call('generate', $transaksi->id, 'docx');
+            ->call('unduhWord', $transaksi->id);
 
         $transaksi->refresh();
 
@@ -204,7 +205,7 @@ class PenomoranHybridTest extends TestCase
         Volt::actingAs($this->user)
             ->test('pages.transaksi.index')
             ->set('selected', [$terbaru->id, $terlama->id, $tengah->id]) // urutan select sengaja diacak
-            ->call('generateBulk', 'docx');
+            ->call('generateBulk');
 
         $this->assertStringContainsString('/0006/', $terlama->fresh()->nomor_npb); // paling lama -> nomor terkecil
         $this->assertStringContainsString('/0007/', $tengah->fresh()->nomor_npb);
@@ -226,7 +227,7 @@ class PenomoranHybridTest extends TestCase
             'status' => 'draft',
         ]);
 
-        Volt::actingAs($this->user)->test('pages.transaksi.index')->call('generate', $transaksi->id, 'docx');
+        Volt::actingAs($this->user)->test('pages.transaksi.index')->call('generate', $transaksi->id);
 
         $this->assertSame(6, $this->tahunAnggaran->fresh()->nomor_urut_terakhir);
         $this->assertStringContainsString('/0006/', $transaksi->fresh()->nomor_npb);
@@ -243,7 +244,7 @@ class PenomoranHybridTest extends TestCase
         $this->assertSame('draft', $transaksi->status);
         $this->assertSame(5, $this->tahunAnggaran->fresh()->nomor_urut_terakhir);
 
-        Volt::actingAs($this->user)->test('pages.transaksi.index')->call('generate', $transaksi->id, 'docx');
+        Volt::actingAs($this->user)->test('pages.transaksi.index')->call('generate', $transaksi->id);
         $this->assertStringContainsString('/0006/', $transaksi->fresh()->nomor_npb);
     }
 
@@ -261,8 +262,8 @@ class PenomoranHybridTest extends TestCase
             'tanggal_npb' => '2026-01-11', 'pihak_peminta_id' => $pegawai->id, 'status' => 'draft',
         ]);
 
-        Volt::actingAs($this->user)->test('pages.transaksi.index')->call('generate', $transaksiSalah->id, 'docx'); // nomor 0006
-        Volt::actingAs($this->user)->test('pages.transaksi.index')->call('generate', $transaksiSetelahnya->id, 'docx'); // nomor 0007
+        Volt::actingAs($this->user)->test('pages.transaksi.index')->call('generate', $transaksiSalah->id); // nomor 0006
+        Volt::actingAs($this->user)->test('pages.transaksi.index')->call('generate', $transaksiSetelahnya->id); // nomor 0007
 
         Volt::actingAs($this->user)->test('pages.transaksi.index')
             ->call('mintaBatalkanNomor', $transaksiSalah->id)
@@ -287,7 +288,7 @@ class PenomoranHybridTest extends TestCase
 
         // Generate ketiganya berurutan -> jadi nomor 0006, 0007, 0008
         foreach ([$t1, $t2, $t3] as $t) {
-            Volt::actingAs($this->user)->test('pages.transaksi.index')->call('generate', $t->id, 'docx');
+            Volt::actingAs($this->user)->test('pages.transaksi.index')->call('generate', $t->id);
         }
         $this->assertSame(8, $this->tahunAnggaran->fresh()->nomor_urut_terakhir);
 
@@ -319,7 +320,7 @@ class PenomoranHybridTest extends TestCase
         // t3 (nomor terakhir, 0008) SENGAJA nggak ikut dipilih -- jadi t2 (0007)
         // nggak bisa direclaim karena masih ada t3 (0008) di depannya.
         foreach ([$t1, $t2, $t3TidakDipilih] as $t) {
-            Volt::actingAs($this->user)->test('pages.transaksi.index')->call('generate', $t->id, 'docx');
+            Volt::actingAs($this->user)->test('pages.transaksi.index')->call('generate', $t->id);
         }
 
         Volt::actingAs($this->user)->test('pages.transaksi.index')

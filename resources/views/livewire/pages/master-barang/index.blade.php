@@ -66,7 +66,7 @@ new #[Layout('layouts.app')] class extends Component {
         $barang = MasterBarang::where('sekolah_id', auth()->user()->sekolah_id)->findOrFail($id);
 
         if ($this->sudahDipakai($id)) {
-            session()->flash('error', "\"{$barang->nama_barang}\" sudah pernah dipakai di penerimaan barang atau transaksi keluar, jadi nggak bisa dihapus. Hapus data itu dulu kalau memang perlu, atau biarkan barangnya tetap ada.");
+            session()->flash('error', "\"{$barang->nama_barang}\" sudah pernah dipakai di penerimaan barang atau pengeluaran barang, jadi nggak bisa dihapus. Hapus data itu dulu kalau memang perlu, atau biarkan barangnya tetap ada.");
             return;
         }
 
@@ -97,7 +97,7 @@ new #[Layout('layouts.app')] class extends Component {
         }
 
         if (empty($bisaDihapus)) {
-            session()->flash('error', 'Semua barang yang dipilih sudah pernah dipakai di penerimaan barang atau transaksi keluar, jadi nggak ada yang bisa dihapus.');
+            session()->flash('error', 'Semua barang yang dipilih sudah pernah dipakai di penerimaan barang atau pengeluaran barang, jadi nggak ada yang bisa dihapus.');
             return;
         }
 
@@ -107,7 +107,7 @@ new #[Layout('layouts.app')] class extends Component {
         $this->modalHapusTampil = true;
     }
 
-    /** Barang dianggap "sudah dipakai" kalau pernah tercatat di penerimaan barang ATAU transaksi keluar — soft delete bakal bikin relasi itu jadi null dan nge-crash generate surat, dashboard, dsb kalau tetap dihapus. */
+    /** Barang dianggap "sudah dipakai" kalau pernah tercatat di penerimaan barang ATAU pengeluaran barang — soft delete bakal bikin relasi itu jadi null dan nge-crash generate surat, dashboard, dsb kalau tetap dihapus. */
     protected function sudahDipakai(int $masterBarangId): bool
     {
         return BarangMasukItem::where('master_barang_id', $masterBarangId)->exists() || TransaksiItem::where('master_barang_id', $masterBarangId)->exists();
@@ -290,7 +290,7 @@ new #[Layout('layouts.app')] class extends Component {
                 <div class="mt-3 p-2.5 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-700">
                     <p class="font-medium mb-1">⚠ {{ count($namaTidakBisaDihapusBulk) }} barang lain yang kamu pilih
                         DI-SKIP (nggak ikut dihapus) karena sudah pernah dipakai di penerimaan barang atau
-                        transaksi keluar:</p>
+                        pengeluaran barang:</p>
                     <ul class="list-disc list-inside space-y-0.5">
                         @foreach ($namaTidakBisaDihapusBulk as $nama)
                             <li>{{ $nama }}</li>

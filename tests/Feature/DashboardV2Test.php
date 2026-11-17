@@ -40,7 +40,7 @@ class DashboardV2Test extends TestCase
         Volt::actingAs($this->user)->test('pages.dashboard')
             ->assertOk()
             ->assertSee('Belum ada data di tahun anggaran ini')
-            ->assertSee('Belum ada transaksi keluar di tahun anggaran ini');
+            ->assertSee('Belum ada pengeluaran barang di tahun anggaran ini');
     }
 
     public function test_barang_stok_menipis_muncul_di_alert(): void

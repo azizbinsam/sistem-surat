@@ -166,7 +166,7 @@ new #[Layout('layouts.app')] class extends Component {
 
                     <p class="text-sm text-zinc-700 leading-relaxed">
                         Kesalahan administrasi seperti salah jumlah, salah tanggal,
-                        atau salah input saat penerimaan maupun transaksi keluar.
+                        atau salah input saat penerimaan maupun pengeluaran barang.
                     </p>
 
                     <div class="mt-3 p-3 bg-white/70 rounded-md border border-amber-200">
@@ -179,7 +179,7 @@ new #[Layout('layouts.app')] class extends Component {
                             atau
                             <a href="{{ route('transaksi.index') }}" wire:navigate
                                 class="font-medium underline hover:text-zinc-900">
-                                Transaksi Keluar
+                                Pengeluaran Barang
                             </a>.
                         </p>
                     </div>

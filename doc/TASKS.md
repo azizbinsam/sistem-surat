@@ -143,7 +143,7 @@ Command detail level-per-baris untuk Fase 3 dst akan di-generate Claude **saat k
 
 ## FASE 9 — Subscription & Payment (Fersaku)
 
-**Status: DITUNDA** — web Fersaku (termasuk halaman dokumentasi API) lagi bermasalah pas sesi ini. Item di bawah **di-skip dulu**, lanjut ke Fase 10 dulu, balik lagi ke sini begitu Fersaku bisa diakses lagi.
+**Status: DIBATALKAN (v2.0)** — Fersaku tidak jadi dipakai. Diganti pembayaran manual di **Fase 24** dan iPaymu opsional di **Fase 29**; model bisnis lengkap di `doc/LANGGANAN.md`. Item di bawah dibiarkan sebagai catatan riwayat.
 
 - [ ] Cek ulang dokumentasi API Fersaku (auth header, format request create payment, format & cara verifikasi signature webhook — **jangan asal tebak**, ini bagian keamanan kritis)
 - [ ] Setup Fersaku (sandbox/API key test dulu)
@@ -170,14 +170,15 @@ Command detail level-per-baris untuk Fase 3 dst akan di-generate Claude **saat k
 
 ## FASE 12 — Deployment ke Shared Hosting
 
-**Status: DITUNDA** — push ke GitHub dulu (dikerjakan sekarang), lanjut Fase 9 (Fersaku) kalau sudah bisa diakses, baru deploy.
-- [ ] Siapkan `.env` produksi (DB, APP_URL, Fersaku production key)
+**Status: DITUNDA** — dikerjakan setelah Fase 23–28 (v2.0) selesai dan lolos test lokal.
+- [ ] Siapkan `.env` produksi (DB, APP_URL, dan — bila Fase 29 dikerjakan — kunci produksi iPaymu)
 - [ ] Build asset (`npm run build`)
 - [ ] Upload via Git deploy atau manual zip ke cPanel
 - [ ] Setup database di cPanel (phpMyAdmin), import struktur
 - [ ] Jalankan migration produksi (`php artisan migrate --force`)
 - [ ] Setup document root kalau shared hosting (arahkan ke folder `public`, atau pakai trik `.htaccess` kalau nggak bisa ubah document root)
 - [ ] Setup queue worker (kalau shared hosting support, atau pakai `sync` driver kalau tidak ada akses cron/worker)
+- [ ] Setup cron job untuk Laravel Scheduler (`* * * * * php /path/artisan schedule:run`) — dipakai pengingat langganan (Fase 24)
 - [ ] Setup SSL (biasanya sudah include di cPanel — AutoSSL)
 - [ ] Install Laravel Socialite + setup Google OAuth (buat credentials di Google Cloud Console dengan redirect URI domain produksi, misal `https://domainkamu.com/auth/google/callback`)
 - [ ] Tambah toggle "Login dengan Google" di halaman login (logic: kalau email sudah terdaftar via email+password, link ke akun yang sama — bukan bikin akun duplikat)
@@ -299,3 +300,61 @@ Ditemukan pas testing Fase 11: modul Persediaan/Transaksi masih kurang lengkap b
 - [x] Section di landing page: embed player YouTube beneran per video + judul & deskripsi, urut sesuai `urutan`, section disembunyikan total kalau belum ada video
 
 Detail command tiap fase (composer require spesifik, artisan make:model, dst) akan saya tulis lengkap pas kita mulai fase itu.
+
+---
+
+## v2.0 — Langganan Triwulan (lihat `doc/LANGGANAN.md` untuk detail keputusan)
+
+Cara pakai: kerjakan **satu fase per sesi**, jalankan `php artisan test` sebelum lanjut ke fase berikutnya, lalu centang dan commit.
+
+### 23 — Fondasi & Revisi Cepat (tidak bergantung pada pembayaran)
+- [ ] `App\Support\Triwulan` (helper tanggal ↔ triwulan) + `tests/Unit/TriwulanTest.php`
+- [ ] Trait `FiltersByPeriode` + komponen `<x-filter-periode>` (pilih triwulan mengisi tanggal otomatis)
+- [ ] Penerimaan Barang: filter rentang tanggal + triwulan
+- [ ] Ganti nama tampilan "Transaksi Keluar" → "Pengeluaran Barang" (menu, judul, dashboard, pesan; route & tabel tetap)
+- [ ] Pengeluaran Barang: filter rentang tanggal + triwulan; perbaiki pengelompokan `orWhere` pada pencarian
+- [ ] Persediaan: pilihan jumlah baris (15/25/50/100)
+- [ ] Pecah **Generate** (hanya nomor + status) dari **Unduh Word**; hapus Generate PDF untuk surat
+- [ ] Tombol Generate / Unduh Word / Batal Generate di menu aksi baris + bar bulk
+- [ ] Bulk generate dibatalkan total bila ada pihak peminta belum dipilih
+- [ ] Komponen `<x-loading-overlay>` untuk Generate & Unduh
+- [ ] Penomoran aman dari nomor kembar (`lockForUpdate` + `DB::transaction`)
+- [ ] Perbarui test lama (`PenomoranHybridTest`, `TransaksiSederhanakanUiTest`) + `Fase23FondasiTest`
+
+### 24 — Langganan Triwulan (manual)
+- [ ] Migrasi: `hak_triwulan`, `invoice`, `invoice_item`; migrasi pembersih `subscriptions` / `fersaku_payment_id`
+- [ ] Seeder/katalog `paket_subscription`: Triwulan Rp39.000, Tahunan Rp129.000
+- [ ] Service `AksesTriwulanService` (`bisaGenerate`, hitung harga `min(sisa×39.000, 129.000)`)
+- [ ] Pengunci hak triwulan di `jalankanGenerate()`
+- [ ] Halaman sekolah **Langganan** (4 kartu TW) + buat invoice + kode unik
+- [ ] Halaman invoice + upload bukti transfer + riwayat pembayaran
+- [ ] Persetujuan invoice (dipakai admin Fase 25) → buat hak triwulan
+- [ ] Kwitansi PDF (dompdf) + email notifikasi
+- [ ] Pengingat terjadwal (scheduler)
+- [ ] Hapus `SuratPdfGenerator` + view `pdf/surat.blade.php` setelah dipastikan tidak terpakai
+- [ ] Test: gate generate, harga, persetujuan invoice
+
+### 25 — Panel Admin v2
+- [ ] Resource **Sekolah** (data lengkap + ringkasan aktivitas + status hak)
+- [ ] Resource **User** diperluas + `users.last_login_at`
+- [ ] Resource **Invoice** (Setujui / Tolak) + **Hak Triwulan** (beri manual / cabut)
+- [ ] Dashboard admin (widget §10 `LANGGANAN.md`)
+- [ ] Menu admin dikelompokkan; `RekeningDonasiResource` jadi "Rekening Pembayaran"
+
+### 26 — Banner
+- [ ] Migrasi + model `Banner`
+- [ ] Filament resource Banner (upload desktop 1600×400 & mobile 800×600, validasi dimensi, maks 1 MB)
+- [ ] Komponen slider responsif (`<picture>` + Alpine) di dashboard sekolah dan landing page
+
+### 27 — Landing Page v3
+- [ ] Bagian harga dinamis (Triwulan & Tahunan), cara berlangganan, FAQ
+- [ ] Ganti bagian donasi dengan rekening pembayaran; slot banner
+
+### 28 — Migrasi Sekolah Lama & Peluncuran
+- [ ] Perintah `langganan:beri-hak-gratis-2026` (idempotent)
+- [ ] Pengumuman ke sekolah (email + banner) paling lambat awal Desember 2026
+- [ ] Putuskan "Keputusan Terbuka" `LANGGANAN.md` §14
+
+### 29 — iPaymu (opsional, setelah manual berjalan)
+- [ ] Baca dokumentasi API & biaya iPaymu; pastikan verifikasi signature webhook
+- [ ] Integrasi create payment + webhook → memicu persetujuan invoice yang sama

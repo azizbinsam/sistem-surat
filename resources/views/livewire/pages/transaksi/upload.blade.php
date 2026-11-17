@@ -254,11 +254,11 @@ new #[Layout('layouts.app')] class extends Component {
         </a>
 
         <h1 class="text-2xl font-bold text-zinc-900">
-            Upload Transaksi Keluar
+            Upload Pengeluaran Barang
         </h1>
 
         <p class="text-sm text-zinc-500 mt-1">
-            Upload data transaksi keluar sekaligus lewat file Excel.
+            Upload data pengeluaran barang sekaligus lewat file Excel.
         </p>
     </div>
 

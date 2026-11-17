@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Sekolah;
 use App\Models\TahunAnggaran;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 
 class NomorSuratService
 {
@@ -29,10 +30,20 @@ class NomorSuratService
      */
     public function generateNomorNpb(Sekolah $sekolah, TahunAnggaran $tahunAnggaran, Carbon $tanggal): string
     {
-        $tahunAnggaran->increment('nomor_urut_terakhir');
-        $tahunAnggaran->refresh();
+        // lockForUpdate = "kunci" baris tahun_anggaran ini di database sampai transaksi selesai.
+        // Kalau dua proses generate jalan hampir bersamaan, yang kedua MENUNGGU yang pertama
+        // selesai dulu — jadi mustahil dua surat dapat nomor urut yang sama (sebelumnya
+        // increment lalu refresh bisa "kesalip" proses lain di antara keduanya).
+        // Kalau dipanggil dari dalam DB::transaction milik pemanggil (misal bulk generate),
+        // kunci ditahan sampai transaksi terluar itu selesai.
+        return DB::transaction(function () use ($sekolah, $tahunAnggaran, $tanggal) {
+            TahunAnggaran::whereKey($tahunAnggaran->getKey())->lockForUpdate()->firstOrFail();
 
-        return $this->formatNpb($sekolah, $tanggal, (int) $tahunAnggaran->nomor_urut_terakhir);
+            $tahunAnggaran->increment('nomor_urut_terakhir');
+            $tahunAnggaran->refresh();
+
+            return $this->formatNpb($sekolah, $tanggal, (int) $tahunAnggaran->nomor_urut_terakhir);
+        });
     }
 
     /**

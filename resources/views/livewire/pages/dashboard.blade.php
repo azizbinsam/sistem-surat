@@ -53,7 +53,7 @@ new #[Layout('layouts.app')] class extends Component {
         $selesaiTotal = Transaksi::where('sekolah_id', $sekolahId)->where('status', 'selesai')->count();
         $suratBulanIni = Transaksi::where('sekolah_id', $sekolahId)->where('status', 'selesai')->whereMonth('updated_at', now()->month)->whereYear('updated_at', now()->year)->count();
 
-        // ===== Chart 1: tren Barang Masuk vs Transaksi Keluar per bulan (tahun anggaran aktif) =====
+        // ===== Chart 1: tren Barang Masuk vs Pengeluaran Barang per bulan (tahun anggaran aktif) =====
         // Query lewat Eloquent (bukan raw MONTH()/strftime() biar portable MySQL & SQLite di test),
         // otomatis ke-scope ke tahun anggaran aktif lewat BelongsToTahunAnggaran (Fase 15).
         $masukPerBulan = array_fill(1, 12, 0);
@@ -171,7 +171,7 @@ new #[Layout('layouts.app')] class extends Component {
     {{-- Chart tren & top barang --}}
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div class="lg:col-span-2 bg-white rounded-xl border border-zinc-100 shadow-sm p-5">
-            <h2 class="font-semibold text-zinc-900 mb-4">Tren Barang Masuk vs Transaksi Keluar</h2>
+            <h2 class="font-semibold text-zinc-900 mb-4">Tren Barang Masuk vs Pengeluaran Barang</h2>
             @if (array_sum($masukPerBulan) === 0 && array_sum($keluarPerBulan) === 0)
                 <p class="text-sm text-zinc-400 text-center py-16">Belum ada data di tahun anggaran ini.</p>
             @else
@@ -184,7 +184,7 @@ new #[Layout('layouts.app')] class extends Component {
                         'tension' => 0.3,
                     ],
                     [
-                        'label' => 'Transaksi Keluar',
+                        'label' => 'Pengeluaran Barang',
                         'data' => $keluarPerBulan,
                         'borderColor' => '#dc2626',
                         'backgroundColor' => '#dc262620',
@@ -207,7 +207,7 @@ new #[Layout('layouts.app')] class extends Component {
     <div class="bg-white rounded-xl border border-zinc-100 shadow-sm p-5">
         <h2 class="font-semibold text-zinc-900 mb-4">Top 5 Barang Paling Sering Keluar</h2>
         @if ($topBarang->isEmpty())
-            <p class="text-sm text-zinc-400 text-center py-8">Belum ada transaksi keluar di tahun anggaran ini.</p>
+            <p class="text-sm text-zinc-400 text-center py-8">Belum ada pengeluaran barang di tahun anggaran ini.</p>
         @else
             <x-chart type="bar" :labels="$topBarang->pluck('masterBarang.nama_barang')" :datasets="[
                 [
