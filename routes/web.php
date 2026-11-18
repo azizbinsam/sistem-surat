@@ -77,6 +77,7 @@ Route::middleware(['auth'])->group(function () {
     Route::prefix('langganan')->name('langganan.')->group(function () {
         Volt::route('/', 'pages.langganan.index')->name('index');
         Volt::route('invoice/{invoice}', 'pages.langganan.invoice')->name('invoice');
+        Route::get('invoice/{invoice}/kwitansi', \App\Http\Controllers\KwitansiController::class)->name('kwitansi');
     });
 
     Volt::route('pengaturan-sekolah', 'pages.pengaturan.sekolah')->name('pengaturan.sekolah');

@@ -140,16 +140,21 @@ Satu perintah artisan, **aman dijalankan berulang** (idempotent): `php artisan l
 - Setelah batas lewat dan belum di-generate, sekolah perlu membeli seperti biasa.
 - **Pengumuman ke sekolah** (email + banner dashboard) paling lambat awal Desember 2026: sampai kapan gratis, harga paket, dan cara bayar.
 
-## 9. Pengingat Otomatis
+## 9. Email & Pengingat Otomatis
 
-Memakai Laravel Scheduler (satu cron job di cPanel: `* * * * * php /path/artisan schedule:run`).
+Memakai Laravel Scheduler (satu cron job di cPanel: `* * * * * php /path/artisan schedule:run`). Semua email memakai satu Mailable (`NotifikasiLanggananMail`) dan layout `emails.layout`. **Gagal kirim email tidak pernah menggagalkan aksi utama** (mis. persetujuan pembayaran): error hanya dicatat di log.
 
-| Pengingat | Kapan | Ke siapa |
+| Email | Kapan | Ke siapa |
 |---|---|---|
-| "Anda punya N transaksi draft di TWx yang belum bisa di-generate" | Awal bulan setelah triwulan berakhir (1 Jan, 1 Apr, 1 Jul, 1 Okt) | Sekolah |
-| Invoice hampir kedaluwarsa | H-2 jatuh tempo | Sekolah |
-| Invoice menunggu verifikasi > 24 jam | Harian | Admin |
-| Kwitansi + hak aktif | Saat disetujui | Sekolah |
+| Pembayaran disetujui + **lampiran kwitansi PDF** | Saat admin klik Setujui | Semua user sekolah |
+| Bukti ditolak + alasan + batas upload ulang | Saat admin klik Tolak | Semua user sekolah |
+| Invoice hampir kedaluwarsa | Tepat 2 hari sebelum jatuh tempo (invoice masih menunggu pembayaran) | Semua user sekolah |
+| "Ada N transaksi draft di TWx yang belum bisa di-generate" | 1 Jan/Apr/Jul/Okt, hanya bila pengunci aktif dan triwulan yang baru berakhir belum punya hak | Semua user sekolah |
+| Invoice menunggu verifikasi > 24 jam | Harian, selama masih ada yang menggantung (satu email berisi daftar) | Semua admin |
+
+Perintah: `php artisan langganan:kirim-pengingat` (terjadwal 08:00 setiap hari). Opsi `--tanggal=YYYY-MM-DD` untuk uji coba. `langganan:kedaluwarsakan-invoice` terjadwal 00:10.
+
+**Kwitansi PDF:** nomor `KWT-{tahun}-{id}` (diturunkan dari nomor invoice), memuat rincian, kode unik, jumlah dibayar, dan **terbilang** (`App\Support\Terbilang`). Sekolah mengunduhnya dari halaman invoice yang sudah lunas (`/langganan/invoice/{id}/kwitansi`). Identitas penerbit diatur lewat `LANGGANAN_PENERBIT_NAMA` dan `LANGGANAN_PENERBIT_SITUS` di `.env`.
 
 ## 10. Panel Admin v2
 

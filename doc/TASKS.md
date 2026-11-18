@@ -333,9 +333,11 @@ Cara pakai: kerjakan **satu fase per sesi**, jalankan `php artisan test` sebelum
 - [ ] Test `Fase24LanggananTest`
 
 ### 24B — Langganan Triwulan: pelengkap
-- [ ] Kwitansi PDF (dompdf) saat invoice disetujui + email notifikasi (disetujui/ditolak)
-- [ ] Pengingat terjadwal (draft belum bisa di-generate, invoice hampir kedaluwarsa, invoice menunggu verifikasi > 24 jam)
-- [ ] Hapus `SuratPdfGenerator` + view `pdf/surat.blade.php` setelah dipastikan tidak terpakai
+- [ ] Kwitansi PDF (dompdf) + `App\Support\Terbilang` + tombol "Unduh Kwitansi" di halaman invoice lunas
+- [ ] Email: pembayaran disetujui (+ lampiran kwitansi) dan bukti ditolak; gagal kirim tidak menggagalkan aksi
+- [ ] Pengingat terjadwal `langganan:kirim-pengingat`: invoice hampir kedaluwarsa, invoice menunggu verifikasi > 24 jam (admin), draft belum bisa di-generate
+- [ ] Hapus `SuratPdfGenerator` + view `pdf/surat.blade.php` (dompdf tetap dipakai kwitansi)
+- [ ] Test `Fase24BNotifikasiTest`, `TerbilangTest`
 
 ### 25 — Panel Admin v2
 - [ ] Resource **Sekolah** (data lengkap + ringkasan aktivitas + status hak)

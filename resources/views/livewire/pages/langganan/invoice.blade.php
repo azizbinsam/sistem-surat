@@ -180,6 +180,8 @@ new #[Layout('layouts.app')] class extends Component {
         <div class="p-4 bg-emerald-50 border border-emerald-200 rounded-xl text-sm text-emerald-800">
             Pembayaran sudah diverifikasi. Triwulan di invoice ini sudah aktif — silakan kembali ke menu Pengeluaran
             Barang untuk generate surat.
+            <a href="{{ route('langganan.kwitansi', $invoice) }}"
+                class="block mt-2 font-semibold underline">Unduh Kwitansi (PDF)</a>
         </div>
     @endif
 

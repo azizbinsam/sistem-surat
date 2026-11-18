@@ -19,7 +19,7 @@ use Illuminate\Support\Facades\Storage;
  */
 class InvoiceService
 {
-    public function __construct(protected AksesTriwulanService $akses)
+    public function __construct(protected AksesTriwulanService $akses, protected LanggananNotifier $notifier)
     {
     }
 
@@ -146,7 +146,7 @@ class InvoiceService
      */
     public function setujui(Invoice $invoice, User $admin): Invoice
     {
-        return DB::transaction(function () use ($invoice, $admin) {
+        $hasil = DB::transaction(function () use ($invoice, $admin) {
             $terkunci = Invoice::whereKey($invoice->getKey())->lockForUpdate()->firstOrFail();
 
             if (!$terkunci->bisaDisetujui()) {
@@ -183,6 +183,13 @@ class InvoiceService
 
             return $terkunci;
         });
+
+        // Email dikirim SETELAH transaksi database selesai, dan kegagalannya tidak menggagalkan persetujuan
+        // (LanggananNotifier menangkap semua error). Kalau emailnya dikirim di dalam transaksi lalu transaksi
+        // dibatalkan, sekolah bisa dapat email "sudah disetujui" padahal datanya tidak tersimpan.
+        $this->notifier->invoiceDisetujui($hasil);
+
+        return $hasil;
     }
 
     /** Admin menolak bukti: sekolah diberi waktu tambahan (jatuh tempo diperpanjang) untuk upload ulang. */
@@ -199,6 +206,8 @@ class InvoiceService
             'diverifikasi_at' => now(),
             'jatuh_tempo_at' => now()->addDays((int) config('langganan.jatuh_tempo_hari')),
         ]);
+
+        $this->notifier->invoiceDitolak($invoice);
 
         return $invoice;
     }

@@ -20,4 +20,10 @@ return [
     // Rentang kode unik di belakang nominal invoice (mis. Rp39.017) supaya mudah dicocokkan di mutasi rekening.
     'kode_unik_min' => 1,
     'kode_unik_max' => 999,
+
+    // Identitas penerbit di kwitansi PDF.
+    'penerbit' => [
+        'nama' => env('LANGGANAN_PENERBIT_NAMA', 'Delix Studio'),
+        'situs' => env('LANGGANAN_PENERBIT_SITUS', 'delixstudio.com'),
+    ],
 ];
