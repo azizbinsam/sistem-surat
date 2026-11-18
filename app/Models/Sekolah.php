@@ -60,6 +60,11 @@ class Sekolah extends Model
         return $this->hasMany(User::class);
     }
 
+    public function transaksi(): HasMany
+    {
+        return $this->hasMany(Transaksi::class);
+    }
+
     public function hakTriwulan(): HasMany
     {
         return $this->hasMany(HakTriwulan::class);

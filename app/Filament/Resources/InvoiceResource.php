@@ -17,6 +17,9 @@ use Illuminate\Support\Facades\Storage;
 /**
  * Daftar invoice + aksi Setujui / Tolak (doc/LANGGANAN.md §5, §10).
  * Tidak ada buat/ubah manual: invoice hanya dibuat sekolah lewat halaman Langganan.
+ *
+ * Aksi-aksinya dibuat lewat method static (aksiBukti/aksiSetujui/aksiTolak) supaya widget dashboard
+ * "Invoice Menunggu Verifikasi" memakai aksi yang SAMA persis — satu sumber kebenaran.
  */
 class InvoiceResource extends Resource
 {
@@ -27,6 +30,8 @@ class InvoiceResource extends Resource
     protected static ?string $navigationLabel = 'Invoice';
 
     protected static ?string $navigationGroup = 'Keuangan';
+
+    protected static ?int $navigationSort = 1;
 
     public static function canCreate(): bool
     {
@@ -46,6 +51,76 @@ class InvoiceResource extends Resource
         return parent::getEloquentQuery()->with('sekolah', 'items.tahunAnggaran');
     }
 
+    /** Kolom "TW1 2027, TW2 2027" — dipakai tabel resource dan widget dashboard. */
+    public static function kolomTriwulan(): Tables\Columns\TextColumn
+    {
+        return Tables\Columns\TextColumn::make('triwulan')
+            ->label('Triwulan')
+            ->state(fn(Invoice $record) => $record->items
+                ->sortBy('triwulan')
+                ->map(fn($i) => "TW{$i->triwulan} {$i->tahunAnggaran->tahun}")
+                ->implode(', '));
+    }
+
+    public static function aksiBukti(): Tables\Actions\Action
+    {
+        return Tables\Actions\Action::make('bukti')
+            ->label('Lihat Bukti')
+            ->icon('heroicon-o-photo')
+            ->color('gray')
+            ->url(fn(Invoice $record) => $record->bukti_transfer ? Storage::disk('public')->url($record->bukti_transfer) : null)
+            ->openUrlInNewTab()
+            ->visible(fn(Invoice $record) => filled($record->bukti_transfer));
+    }
+
+    public static function aksiSetujui(): Tables\Actions\Action
+    {
+        return Tables\Actions\Action::make('setujui')
+            ->label('Setujui')
+            ->icon('heroicon-o-check-circle')
+            ->color('success')
+            ->requiresConfirmation()
+            ->modalHeading('Setujui pembayaran ini?')
+            ->modalDescription(fn(Invoice $record) => 'Pastikan Rp ' . number_format($record->total_bayar, 0, ',', '.') . ' sudah masuk ke rekening. Triwulan di invoice ini akan langsung aktif.')
+            ->visible(fn(Invoice $record) => $record->bisaDisetujui())
+            ->action(function (Invoice $record) {
+                try {
+                    app(InvoiceService::class)->setujui($record, auth()->user());
+                } catch (LanggananException $e) {
+                    Notification::make()->title($e->getMessage())->danger()->send();
+                    return;
+                }
+
+                Notification::make()->title('Pembayaran disetujui, triwulan sudah aktif.')->success()->send();
+            });
+    }
+
+    public static function aksiTolak(): Tables\Actions\Action
+    {
+        return Tables\Actions\Action::make('tolak')
+            ->label('Tolak')
+            ->icon('heroicon-o-x-circle')
+            ->color('danger')
+            ->form([
+                Forms\Components\Textarea::make('alasan')
+                    ->label('Alasan penolakan')
+                    ->helperText('Ditampilkan ke sekolah supaya mereka tahu apa yang perlu diperbaiki.')
+                    ->required()
+                    ->maxLength(500),
+            ])
+            ->visible(fn(Invoice $record) => $record->bisaDitolak())
+            ->action(function (Invoice $record, array $data) {
+                try {
+                    app(InvoiceService::class)->tolak($record, auth()->user(), $data['alasan']);
+                } catch (LanggananException $e) {
+                    Notification::make()->title($e->getMessage())->danger()->send();
+                    return;
+                }
+
+                Notification::make()->title('Invoice ditolak.')->success()->send();
+            });
+    }
+
     public static function table(Table $table): Table
     {
         return $table
@@ -53,11 +128,7 @@ class InvoiceResource extends Resource
             ->columns([
                 Tables\Columns\TextColumn::make('nomor')->searchable()->sortable(),
                 Tables\Columns\TextColumn::make('sekolah.nama_sekolah')->label('Sekolah')->searchable(),
-                Tables\Columns\TextColumn::make('triwulan')
-                    ->label('Triwulan')
-                    ->state(fn(Invoice $record) => $record->items
-                        ->map(fn($i) => "TW{$i->triwulan} {$i->tahunAnggaran->tahun}")
-                        ->implode(', ')),
+                self::kolomTriwulan(),
                 Tables\Columns\TextColumn::make('total_bayar')->label('Total Bayar')->money('IDR')->sortable(),
                 Tables\Columns\TextColumn::make('status')
                     ->badge()
@@ -84,55 +155,9 @@ class InvoiceResource extends Resource
                 ]),
             ])
             ->actions([
-                Tables\Actions\Action::make('bukti')
-                    ->label('Lihat Bukti')
-                    ->icon('heroicon-o-photo')
-                    ->color('gray')
-                    ->url(fn(Invoice $record) => $record->bukti_transfer ? Storage::disk('public')->url($record->bukti_transfer) : null)
-                    ->openUrlInNewTab()
-                    ->visible(fn(Invoice $record) => filled($record->bukti_transfer)),
-
-                Tables\Actions\Action::make('setujui')
-                    ->label('Setujui')
-                    ->icon('heroicon-o-check-circle')
-                    ->color('success')
-                    ->requiresConfirmation()
-                    ->modalHeading('Setujui pembayaran ini?')
-                    ->modalDescription(fn(Invoice $record) => 'Pastikan Rp ' . number_format($record->total_bayar, 0, ',', '.') . ' sudah masuk ke rekening. Triwulan di invoice ini akan langsung aktif.')
-                    ->visible(fn(Invoice $record) => $record->bisaDisetujui())
-                    ->action(function (Invoice $record) {
-                        try {
-                            app(InvoiceService::class)->setujui($record, auth()->user());
-                        } catch (LanggananException $e) {
-                            Notification::make()->title($e->getMessage())->danger()->send();
-                            return;
-                        }
-
-                        Notification::make()->title('Pembayaran disetujui, triwulan sudah aktif.')->success()->send();
-                    }),
-
-                Tables\Actions\Action::make('tolak')
-                    ->label('Tolak')
-                    ->icon('heroicon-o-x-circle')
-                    ->color('danger')
-                    ->form([
-                        Forms\Components\Textarea::make('alasan')
-                            ->label('Alasan penolakan')
-                            ->helperText('Ditampilkan ke sekolah supaya mereka tahu apa yang perlu diperbaiki.')
-                            ->required()
-                            ->maxLength(500),
-                    ])
-                    ->visible(fn(Invoice $record) => $record->bisaDitolak())
-                    ->action(function (Invoice $record, array $data) {
-                        try {
-                            app(InvoiceService::class)->tolak($record, auth()->user(), $data['alasan']);
-                        } catch (LanggananException $e) {
-                            Notification::make()->title($e->getMessage())->danger()->send();
-                            return;
-                        }
-
-                        Notification::make()->title('Invoice ditolak.')->success()->send();
-                    }),
+                self::aksiBukti(),
+                self::aksiSetujui(),
+                self::aksiTolak(),
             ]);
     }
 

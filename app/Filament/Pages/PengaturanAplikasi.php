@@ -18,7 +18,7 @@ class PengaturanAplikasi extends Page implements HasForms
 
     protected static ?string $navigationLabel = 'Pengaturan Aplikasi';
 
-    protected static ?string $navigationGroup = 'Pengaturan Platform';
+    protected static ?string $navigationGroup = 'Sistem';
 
     protected static string $view = 'filament.pages.pengaturan-aplikasi';
 

@@ -14,11 +14,18 @@ class RekeningDonasiResource extends Resource
 {
     protected static ?string $model = RekeningDonasi::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-heart';
+    protected static ?string $navigationIcon = 'heroicon-o-credit-card';
 
-    protected static ?string $navigationLabel = 'Rekening Donasi';
+    // Sejak v2.0 rekening ini dipakai sebagai tujuan pembayaran langganan (doc/LANGGANAN.md §10).
+    protected static ?string $navigationLabel = 'Rekening Pembayaran';
 
-    protected static ?string $navigationGroup = 'Pengaturan Platform';
+    protected static ?string $modelLabel = 'Rekening Pembayaran';
+
+    protected static ?string $pluralModelLabel = 'Rekening Pembayaran';
+
+    protected static ?string $navigationGroup = 'Keuangan';
+
+    protected static ?int $navigationSort = 4;
 
     public static function form(Form $form): Form
     {

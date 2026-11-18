@@ -24,6 +24,8 @@ class PaketLanggananResource extends Resource
 
     protected static ?string $navigationGroup = 'Keuangan';
 
+    protected static ?int $navigationSort = 3;
+
     protected static ?string $modelLabel = 'Paket';
 
     protected static ?string $pluralModelLabel = 'Paket & Harga';

@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use App\Listeners\CatatLoginTerakhir;
+use Illuminate\Auth\Events\Login;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Auth\Listeners\SendEmailVerificationNotification;
 use Illuminate\Pagination\Paginator;
@@ -35,5 +37,8 @@ class AppServiceProvider extends ServiceProvider
         // akan pernah terkirim saat registrasi. Ini yang bikin fitur ini
         // sebelumnya sama sekali nggak jalan.
         Event::listen(Registered::class, SendEmailVerificationNotification::class);
+
+        // Fase 25: catat waktu login terakhir user untuk pelacakan di panel admin.
+        Event::listen(Login::class, [CatatLoginTerakhir::class, 'catat']);
     }
 }

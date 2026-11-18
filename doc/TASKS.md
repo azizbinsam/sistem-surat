@@ -340,11 +340,15 @@ Cara pakai: kerjakan **satu fase per sesi**, jalankan `php artisan test` sebelum
 - [ ] Test `Fase24BNotifikasiTest`, `TerbilangTest`
 
 ### 25 — Panel Admin v2
-- [ ] Resource **Sekolah** (data lengkap + ringkasan aktivitas + status hak)
-- [ ] Resource **User** diperluas + `users.last_login_at`
-- [ ] Resource **Invoice** (Setujui / Tolak) + **Hak Triwulan** (beri manual / cabut)
-- [ ] Dashboard admin (widget §10 `LANGGANAN.md`)
-- [ ] Menu admin dikelompokkan; `RekeningDonasiResource` jadi "Rekening Pembayaran"
+- [ ] Migrasi `users.last_login_at` + listener event Login (`CatatLoginTerakhir`)
+- [ ] Resource **Sekolah** (lihat saja): hitungan aktivitas & langganan, filter, halaman detail, ekspor CSV; relasi `Sekolah::transaksi()`
+- [ ] Resource **User** diperluas: sekolah/NPSN, daftar via, email terverifikasi, terakhir login, filter, ekspor CSV
+- [ ] Resource **Hak Triwulan**: Beri Hak / Cabut / Aktifkan kembali (`AksesTriwulanService::berikanHak`, `cabutHak`, `aktifkanKembaliHak`)
+- [ ] `InvoiceResource` direfaktor: aksi Bukti/Setujui/Tolak jadi method static agar dipakai ulang widget
+- [ ] Dashboard admin: statistik, invoice menunggu verifikasi, grafik pendaftaran & pendapatan, calon pembeli, belum onboarding; widget bawaan Filament dimatikan
+- [ ] Menu dikelompokkan (Sekolah & User · Keuangan · Konten · Sistem); "Rekening Donasi" → "Rekening Pembayaran"
+- [ ] `App\Support\EksporCsv` (BOM UTF-8 + perlindungan CSV injection)
+- [ ] Test `Fase25AdminV2Test`
 
 ### 26 — Banner
 - [ ] Migrasi + model `Banner`

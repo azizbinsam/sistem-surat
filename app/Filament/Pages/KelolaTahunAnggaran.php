@@ -15,7 +15,7 @@ class KelolaTahunAnggaran extends Page
 
     protected static ?string $navigationLabel = 'Tahun Anggaran';
 
-    protected static ?string $navigationGroup = 'Pengaturan Platform';
+    protected static ?string $navigationGroup = 'Sistem';
 
     protected static string $view = 'filament.pages.kelola-tahun-anggaran';
 

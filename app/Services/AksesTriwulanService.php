@@ -2,9 +2,12 @@
 
 namespace App\Services;
 
+use App\Exceptions\LanggananException;
 use App\Models\HakTriwulan;
 use App\Models\PaketLangganan;
 use App\Models\Sekolah;
+use App\Models\TahunAnggaran;
+use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
 
 /**
@@ -58,6 +61,67 @@ class AksesTriwulanService
             ->get()
             ->keyBy(fn($h) => $h->tahun_anggaran_id . '-' . $h->triwulan)
             ->all();
+    }
+
+    // ===== Pemberian & pencabutan hak oleh admin =====
+
+    /**
+     * Admin memberi hak triwulan tanpa pembayaran (promo, komplimen, sekolah percontohan).
+     * sumber: 'gratis' (biasanya dengan batas waktu) atau 'manual' (diberikan admin, biasanya tanpa batas).
+     * Kalau hak untuk triwulan itu sudah ada (mis. sebelumnya dicabut atau gratis kedaluwarsa), barisnya diperbarui
+     * — satu (tahun anggaran, triwulan) hanya boleh punya satu baris. Hak BERBAYAR yang masih aktif tidak ditimpa.
+     */
+    public function berikanHak(Sekolah $sekolah, TahunAnggaran $tahunAnggaran, int $triwulan, string $sumber, ?CarbonInterface $berlakuSampai = null, ?string $catatan = null): HakTriwulan
+    {
+        if ($tahunAnggaran->sekolah_id !== $sekolah->id) {
+            throw new LanggananException('Tahun anggaran bukan milik sekolah ini.');
+        }
+        if ($triwulan < 1 || $triwulan > 4) {
+            throw new LanggananException('Triwulan harus antara 1 sampai 4.');
+        }
+        if (!in_array($sumber, ['gratis', 'manual'], true)) {
+            throw new LanggananException('Sumber hak harus gratis atau manual.');
+        }
+
+        $hak = HakTriwulan::where('tahun_anggaran_id', $tahunAnggaran->id)->where('triwulan', $triwulan)->first();
+
+        if ($hak && $hak->sumber === 'berbayar' && $hak->status === 'aktif') {
+            throw new LanggananException("TW{$triwulan} {$tahunAnggaran->tahun} sudah dibeli sekolah ini (hak berbayar aktif).");
+        }
+
+        $data = [
+            'sumber' => $sumber,
+            'status' => 'aktif',
+            'berlaku_sampai' => $berlakuSampai?->toDateString(),
+            'catatan' => $catatan,
+        ];
+
+        if ($hak) {
+            $hak->update($data);
+
+            return $hak;
+        }
+
+        return HakTriwulan::create($data + [
+            'sekolah_id' => $sekolah->id,
+            'tahun_anggaran_id' => $tahunAnggaran->id,
+            'triwulan' => $triwulan,
+        ]);
+    }
+
+    /** Cabut hak (status → dicabut). Surat yang sudah di-generate tidak terpengaruh; hanya generate berikutnya. */
+    public function cabutHak(HakTriwulan $hak): HakTriwulan
+    {
+        $hak->update(['status' => 'dicabut']);
+
+        return $hak;
+    }
+
+    public function aktifkanKembaliHak(HakTriwulan $hak): HakTriwulan
+    {
+        $hak->update(['status' => 'aktif']);
+
+        return $hak;
     }
 
     public function kuotaPercobaanSisa(Sekolah $sekolah): int

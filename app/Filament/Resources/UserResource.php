@@ -5,6 +5,7 @@ namespace App\Filament\Resources;
 use App\Filament\Resources\UserResource\Pages;
 use App\Filament\Resources\UserResource\RelationManagers;
 use App\Models\User;
+use App\Support\EksporCsv;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -17,7 +18,13 @@ class UserResource extends Resource
 {
     protected static ?string $model = User::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static ?string $navigationIcon = 'heroicon-o-users';
+
+    protected static ?string $navigationLabel = 'User';
+
+    protected static ?string $navigationGroup = 'Sekolah & User';
+
+    protected static ?int $navigationSort = 2;
 
     public static function form(Form $form): Form
     {
@@ -54,22 +61,34 @@ class UserResource extends Resource
         ]);
     }
 
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()->with('sekolah');
+    }
+
     public static function table(Table $table): Table
     {
         return $table
+            ->defaultSort('created_at', 'desc')
             ->columns([
-                Tables\Columns\TextColumn::make('name')->searchable(),
-                Tables\Columns\TextColumn::make('email')->searchable(),
+                Tables\Columns\TextColumn::make('name')->label('Nama')->searchable()->sortable(),
+                Tables\Columns\TextColumn::make('email')->searchable()->sortable(),
                 Tables\Columns\BadgeColumn::make('role')
                     ->colors([
                         'zinc' => 'sekolah',
                         'warning' => 'admin',
                     ]),
-                Tables\Columns\TextColumn::make('sekolah.nama_sekolah')
-                    ->label('Sekolah')
-                    ->placeholder('-'),
+                Tables\Columns\TextColumn::make('sekolah.nama_sekolah')->label('Sekolah')->placeholder('-')->searchable(),
+                Tables\Columns\TextColumn::make('sekolah.npsn')->label('NPSN')->placeholder('-')->toggleable(),
+                Tables\Columns\TextColumn::make('daftar_via')
+                    ->label('Daftar via')
+                    ->badge()
+                    ->state(fn(User $record) => $record->google_id ? 'Google' : 'Email'),
+                Tables\Columns\IconColumn::make('email_verified_at')->label('Email terverifikasi')->boolean(),
+                Tables\Columns\TextColumn::make('last_login_at')->label('Terakhir login')->dateTime('d-m-Y H:i')->sortable()->placeholder('Belum pernah'),
                 Tables\Columns\TextColumn::make('created_at')
                     ->dateTime('d-m-Y')
+                    ->sortable()
                     ->label('Terdaftar'),
             ])
             ->filters([
@@ -78,6 +97,16 @@ class UserResource extends Resource
                         'admin' => 'Admin',
                         'sekolah' => 'Sekolah',
                     ]),
+                Tables\Filters\TernaryFilter::make('email_verified_at')->label('Email terverifikasi')->nullable(),
+                Tables\Filters\Filter::make('belum_onboarding')
+                    ->label('Belum melengkapi profil sekolah')
+                    ->query(fn(Builder $query) => $query->where('role', 'sekolah')->whereNull('sekolah_id')),
+                Tables\Filters\Filter::make('belum_pernah_login')
+                    ->label('Belum pernah login')
+                    ->query(fn(Builder $query) => $query->whereNull('last_login_at')),
+                Tables\Filters\Filter::make('tidak_aktif_30_hari')
+                    ->label('Tidak aktif 30 hari')
+                    ->query(fn(Builder $query) => $query->where(fn($w) => $w->whereNull('last_login_at')->orWhere('last_login_at', '<', now()->subDays(30)))),
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),
@@ -89,6 +118,29 @@ class UserResource extends Resource
                     ->requiresConfirmation()
                     ->action(fn($record) => $record->update(['role' => 'admin'])),
                 Tables\Actions\DeleteAction::make(),
+            ])
+            ->headerActions([
+                Tables\Actions\Action::make('ekspor')
+                    ->label('Ekspor CSV')
+                    ->icon('heroicon-o-arrow-down-tray')
+                    ->color('gray')
+                    ->action(function ($livewire) {
+                        $baris = $livewire->getFilteredSortedTableQuery()->get()->map(fn(User $u) => [
+                            $u->name,
+                            $u->email,
+                            $u->role,
+                            $u->sekolah?->nama_sekolah,
+                            $u->sekolah?->npsn,
+                            $u->google_id ? 'Google' : 'Email',
+                            $u->email_verified_at ? 'Ya' : 'Belum',
+                            $u->last_login_at?->format('Y-m-d H:i'),
+                            $u->created_at?->format('Y-m-d'),
+                        ]);
+
+                        return EksporCsv::unduh('user-' . now()->format('Ymd-His') . '.csv', [
+                            'Nama', 'Email', 'Role', 'Sekolah', 'NPSN', 'Daftar via', 'Email terverifikasi', 'Terakhir login', 'Terdaftar',
+                        ], $baris);
+                    }),
             ]);
     }
 

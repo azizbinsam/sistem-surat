@@ -158,19 +158,30 @@ Perintah: `php artisan langganan:kirim-pengingat` (terjadwal 08:00 setiap hari).
 
 ## 10. Panel Admin v2
 
-**Resource baru / diperluas**
+**Menu (dikelompokkan):** Dashboard · *Sekolah & User* (Sekolah, User) · *Keuangan* (Invoice, Hak Triwulan, Paket & Harga, Rekening Pembayaran) · *Konten* (Video Tutorial; Banner menyusul di Fase 26) · *Sistem* (Tahun Anggaran, Pengaturan Aplikasi).
 
-- **Sekolah** (baru): nama, NPSN, alamat, kontak, tanggal daftar, jumlah user, jumlah penerimaan/pengeluaran/surat ter-generate, status hak per triwulan, total pembayaran. Filter dan ekspor CSV.
-- **User** (diperluas): nama, email, status verifikasi email, cara daftar (Google/email), tanggal daftar, **terakhir login**, sekolah (nama + NPSN), ringkasan aktivitas. Untuk pelacakan, yang dicatat hanya waktu login terakhir (bukan IP) dan disebut di kebijakan privasi.
-- **Invoice** (baru): daftar + bukti transfer + aksi **Setujui / Tolak** (alasan wajib).
-- **Hak Triwulan** (baru): lihat, berikan manual (promo/komplimen), cabut.
-- **Paket & Harga**: katalog harga (Triwulan, Tahunan).
-- **Rekening**: `RekeningDonasiResource` dipakai ulang sebagai **rekening tujuan pembayaran**; label tampil menjadi "Rekening Pembayaran".
-- **Banner** (baru): lihat §11.
+**Resource**
 
-**Dashboard admin (widget)**: total sekolah; pendaftar baru 7/30 hari; sekolah aktif bulan ini; pendapatan bulan ini dan per Tahun Anggaran; **invoice menunggu verifikasi** (dengan tombol cepat); sekolah belum selesai onboarding; sekolah dengan banyak draft belum di-generate (calon pembeli); grafik pendaftaran dan pendapatan per bulan.
+- **Sekolah** (baru, hanya lihat — tanpa tambah/ubah/hapus): nama, NPSN, kota, kontak, jumlah user, jumlah pengeluaran, sudah di-generate, draft, triwulan aktif, kuota percobaan (x/3), total pembayaran, terakhir aktif, tanggal daftar. Filter: belum pernah generate, draft menumpuk (5+), punya triwulan aktif, kuota habis, tidak aktif 30 hari. Halaman detail memuat daftar user dan hak triwulan. **Ekspor CSV.** Catatan: karena tidak ada user sekolah yang login di panel admin, hitungan transaksi mencakup semua Tahun Anggaran.
+- **User** (diperluas): nama, email, role, sekolah (+ NPSN), **daftar via** (Google/Email), email terverifikasi, **terakhir login**, tanggal daftar. Filter: role, email terverifikasi, belum melengkapi profil sekolah, belum pernah login, tidak aktif 30 hari. **Ekspor CSV.**
+- **Invoice**: Setujui / Tolak (alasan wajib) / Lihat bukti; angka di menu = jumlah menunggu verifikasi.
+- **Hak Triwulan** (baru): daftar semua hak; aksi **Beri Hak** (sumber `manual` atau `gratis`, batas waktu opsional, catatan), **Cabut**, **Aktifkan kembali**. Hak berbayar aktif tidak bisa ditimpa. Hak yang sudah ada (dicabut/gratis kedaluwarsa) diperbarui, bukan dibuat ganda.
+- **Paket & Harga**: ubah harga Triwulan dan Tahunan.
+- **Rekening Pembayaran** (sebelumnya "Rekening Donasi"): rekening tujuan transfer yang tampil di halaman invoice sekolah.
 
-**Menu admin (dikelompokkan)**: Dashboard · *Sekolah & User* (Sekolah, User) · *Keuangan* (Invoice, Hak Triwulan, Paket & Harga, Rekening) · *Konten* (Banner, Video Tutorial) · *Sistem* (Tahun Anggaran, Pengaturan Aplikasi).
+**Pelacakan user:** hanya waktu login terakhir (`users.last_login_at`, diisi oleh event Login Laravel — termasuk login Google). Tidak mencatat IP maupun perangkat; sebutkan di kebijakan privasi.
+
+**Ekspor CSV:** berkas diawali BOM UTF-8 (agar Excel membaca karakter Indonesia dengan benar), dan sel yang diawali `=`, `+`, `-`, `@` diberi tanda petik di depan supaya tidak dijalankan sebagai rumus (nama sekolah/user berasal dari input pengguna).
+
+**Dashboard admin (widget):**
+
+| Widget | Isi |
+|---|---|
+| Statistik | Total sekolah (+7 hari), pendaftar baru 30 hari, sekolah aktif bulan ini (minimal 1 user login), pendapatan bulan ini dan tahun ini, invoice menunggu verifikasi, user belum melengkapi profil |
+| Invoice Menunggu Verifikasi | Antrean kerja dengan tombol Lihat Bukti / Setujui / Tolak (aksi sama dengan menu Invoice) |
+| Grafik | Pendaftaran sekolah per bulan dan pendapatan per bulan (12 bulan terakhir) |
+| Calon Pembeli | Sekolah yang punya transaksi draft, diurutkan dari draft terbanyak, beserta triwulan aktif, kuota, dan terakhir aktif |
+| Belum Menyelesaikan Onboarding | User yang sudah mendaftar tapi belum mengisi data sekolah |
 
 ## 11. Banner
 

@@ -36,10 +36,9 @@ class AdminPanelProvider extends PanelProvider
                 Pages\Dashboard::class,
             ])
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\\Filament\\Widgets')
-            ->widgets([
-                Widgets\AccountWidget::class,
-                Widgets\FilamentInfoWidget::class,
-            ])
+            // Widget dashboard ditemukan otomatis dari app/Filament/Widgets (Fase 25); widget bawaan Filament dimatikan.
+            ->widgets([])
+            ->navigationGroups(['Sekolah & User', 'Keuangan', 'Konten', 'Sistem'])
             ->middleware([
                 EncryptCookies::class,
                 AddQueuedCookiesToResponse::class,

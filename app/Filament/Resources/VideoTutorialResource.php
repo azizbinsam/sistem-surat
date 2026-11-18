@@ -18,7 +18,9 @@ class VideoTutorialResource extends Resource
 
     protected static ?string $navigationLabel = 'Video Tutorial';
 
-    protected static ?string $navigationGroup = 'Pengaturan Platform';
+    protected static ?string $navigationGroup = 'Konten';
+
+    protected static ?int $navigationSort = 2;
 
     public static function form(Form $form): Form
     {
