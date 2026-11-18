@@ -55,6 +55,8 @@ Contoh: beli 1 triwulan = Rp39.000. Beli 3 triwulan = Rp117.000. Beli 4 triwulan
 
 ## 4. Aturan Akses
 
+> **Saklar peluncuran:** pengunci hanya berlaku bila `LANGGANAN_PENGUNCI_AKTIF=true` di `.env` (config `langganan.pengunci_aktif`, default **false**). Selama saklar mati, semua sekolah bebas generate, kuota percobaan tidak terpakai, dan menu **Langganan** tidak tampil di sidebar. Nyalakan **setelah** `langganan:beri-hak-gratis-2026` dijalankan di produksi (Fase 28); kalau dinyalakan lebih dulu, sekolah lama akan menghabiskan kuota percobaan dan terblokir.
+
 | Aksi | Perlu hak triwulan? |
 |---|---|
 | Input / edit / hapus penerimaan & pengeluaran barang | Tidak |
@@ -65,6 +67,8 @@ Contoh: beli 1 triwulan = Rp39.000. Beli 3 triwulan = Rp117.000. Beli 4 triwulan
 | Generate ulang setelah batal di triwulan yang sudah dibeli | Tidak memotong apa pun (yang dibeli adalah hak, bukan jumlah generate) |
 
 Pengecekan hak dipasang di `jalankanGenerate()` pada `transaksi/index.blade.php` (sudah ada penanda komentar di kodenya). Bulk generate: kalau ada transaksi di triwulan yang belum dibeli, **seluruh proses dibatalkan** dan pesan menyebut triwulan mana yang perlu dibeli — konsisten dengan aturan pihak peminta (§6).
+
+**Kuota percobaan:** transaksi di triwulan yang belum punya hak boleh tetap di-generate selama kuota (3) masih cukup untuk **seluruh** transaksi yang diproses (all-or-nothing). Kuota dipakai per transaksi yang berhasil di-generate, dicatat dalam transaksi database yang sama, dan **tidak dikembalikan** oleh Batal Generate.
 
 Hak dianggap **aktif** bila: `status = 'aktif'` DAN (`berlaku_sampai` kosong ATAU `berlaku_sampai >= hari ini`).
 
@@ -121,7 +125,11 @@ Tombol di baris menyesuaikan status: *Draft* → Edit, Generate, Hapus. *Sudah d
 
 **`users`**: tambah `last_login_at`.
 
-Tabel lama `paket_subscription` dipertahankan sebagai **katalog harga** (Triwulan 39.000, Tahunan 129.000). Tabel `subscriptions` dan kolom `fersaku_payment_id` dibersihkan di Fase 24 (migrasi pembersih).
+**`paket_langganan`** (katalog harga, menggantikan `paket_subscription`): `kode` (`triwulan` | `tahunan`), `nama`, `harga` (rupiah, integer), `jumlah_triwulan`. Harga awal Rp39.000 dan Rp129.000 diisi oleh migrasi dan bisa diubah admin lewat menu **Paket & Harga** (berlaku untuk invoice yang dibuat setelahnya). Tabel lama `subscriptions` dan `paket_subscription` (termasuk kolom `fersaku_payment_id`) dihapus oleh migrasi Fase 24.
+
+**`sekolah.generate_percobaan_terpakai`**: hitungan kuota percobaan (batas di `config/langganan.php`).
+
+**Kolom `invoice` tambahan:** `subtotal`, `diskon`, `total` (hasil rumus harga), lalu `kode_unik` dan `total_bayar = total + kode_unik`. Nomor invoice: `INV-{tahun}-{id 4 digit}`.
 
 ## 8. Sekolah Lama (migrasi ke model baru)
 

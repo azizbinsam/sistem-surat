@@ -321,18 +321,21 @@ Cara pakai: kerjakan **satu fase per sesi**, jalankan `php artisan test` sebelum
 - [ ] Penomoran aman dari nomor kembar (`lockForUpdate` + `DB::transaction`)
 - [ ] Perbarui test lama (`PenomoranHybridTest`, `TransaksiSederhanakanUiTest`) + `Fase23FondasiTest`
 
-### 24 — Langganan Triwulan (manual)
-- [ ] Migrasi: `hak_triwulan`, `invoice`, `invoice_item`; migrasi pembersih `subscriptions` / `fersaku_payment_id`
-- [ ] Seeder/katalog `paket_subscription`: Triwulan Rp39.000, Tahunan Rp129.000
-- [ ] Service `AksesTriwulanService` (`bisaGenerate`, hitung harga `min(sisa×39.000, 129.000)`)
-- [ ] Pengunci hak triwulan di `jalankanGenerate()`
-- [ ] Halaman sekolah **Langganan** (4 kartu TW) + buat invoice + kode unik
-- [ ] Halaman invoice + upload bukti transfer + riwayat pembayaran
-- [ ] Persetujuan invoice (dipakai admin Fase 25) → buat hak triwulan
-- [ ] Kwitansi PDF (dompdf) + email notifikasi
-- [ ] Pengingat terjadwal (scheduler)
+### 24A — Langganan Triwulan: inti (manual)
+- [ ] Migrasi: `paket_langganan` (+ seed harga 39.000 / 129.000), `invoice`, `invoice_item`, `hak_triwulan`, kolom `sekolah.generate_percobaan_terpakai`; hapus `subscriptions` & `paket_subscription` lama
+- [ ] Model `PaketLangganan`, `Invoice`, `InvoiceItem`, `HakTriwulan`; hapus model/resource Subscription lama
+- [ ] `AksesTriwulanService` (harga `min(n × 39.000, 129.000)`, hak aktif, kuota percobaan, `periksaGenerate`)
+- [ ] Pengunci hak triwulan + kuota di `jalankanGenerate()` (saklar `LANGGANAN_PENGUNCI_AKTIF`, default mati) + ikon gembok di tombol Generate + tautan "Beli paket"
+- [ ] `InvoiceService`: buat invoice (kode unik), upload bukti, batalkan, setujui, tolak, kedaluwarsakan
+- [ ] Halaman sekolah **Langganan** (4 kartu TW + hitung harga + riwayat) dan **Invoice** (rincian, rekening, upload bukti)
+- [ ] Panel admin minimal: **Invoice** (Setujui / Tolak / Lihat bukti, badge jumlah menunggu verifikasi) dan **Paket & Harga**
+- [ ] Perintah terjadwal `langganan:kedaluwarsakan-invoice` (harian)
+- [ ] Test `Fase24LanggananTest`
+
+### 24B — Langganan Triwulan: pelengkap
+- [ ] Kwitansi PDF (dompdf) saat invoice disetujui + email notifikasi (disetujui/ditolak)
+- [ ] Pengingat terjadwal (draft belum bisa di-generate, invoice hampir kedaluwarsa, invoice menunggu verifikasi > 24 jam)
 - [ ] Hapus `SuratPdfGenerator` + view `pdf/surat.blade.php` setelah dipastikan tidak terpakai
-- [ ] Test: gate generate, harga, persetujuan invoice
 
 ### 25 — Panel Admin v2
 - [ ] Resource **Sekolah** (data lengkap + ringkasan aktivitas + status hak)
@@ -353,7 +356,6 @@ Cara pakai: kerjakan **satu fase per sesi**, jalankan `php artisan test` sebelum
 ### 28 — Migrasi Sekolah Lama & Peluncuran
 - [ ] Perintah `langganan:beri-hak-gratis-2026` (idempotent)
 - [ ] Pengumuman ke sekolah (email + banner) paling lambat awal Desember 2026
-- [ ] Putuskan "Keputusan Terbuka" `LANGGANAN.md` §14
 
 ### 29 — iPaymu (opsional, setelah manual berjalan)
 - [ ] Baca dokumentasi API & biaya iPaymu; pastikan verifikasi signature webhook

@@ -5,9 +5,7 @@ use Livewire\Volt\Volt;
 
 Route::get('/', function () {
     return view('welcome', [
-        // PaketSubscription (model harga lama) sudah nggak dipakai di landing page sejak
-        // pivot v1.1 ke gratis + donasi (Fase 22). Modelnya tetap ada karena masih dipakai
-        // Subscription & Filament resource, cuma sudah nggak relevan buat ditampilkan publik.
+        // Harga langganan (PaketLangganan) baru ditampilkan di landing page pada Fase 27.
         'rekeningDonasi' => \Illuminate\Support\Facades\Schema::hasTable('rekening_donasi')
             ? \App\Models\RekeningDonasi::orderBy('urutan')->get()
             : collect(),
@@ -74,6 +72,11 @@ Route::middleware(['auth'])->group(function () {
         Volt::route('/', 'pages.persediaan.index')->name('index');
         Volt::route('{masterBarang}/riwayat', 'pages.persediaan.riwayat')->name('riwayat');
         Volt::route('koreksi', 'pages.persediaan.koreksi')->name('koreksi');
+    });
+
+    Route::prefix('langganan')->name('langganan.')->group(function () {
+        Volt::route('/', 'pages.langganan.index')->name('index');
+        Volt::route('invoice/{invoice}', 'pages.langganan.invoice')->name('invoice');
     });
 
     Volt::route('pengaturan-sekolah', 'pages.pengaturan.sekolah')->name('pengaturan.sekolah');

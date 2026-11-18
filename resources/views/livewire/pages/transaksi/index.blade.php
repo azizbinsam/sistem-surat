@@ -2,6 +2,7 @@
 
 use App\Models\Pegawai;
 use App\Models\Transaksi;
+use App\Services\AksesTriwulanService;
 use App\Services\NomorSuratService;
 use App\Services\PersediaanService;
 use App\Services\SuratWordGenerator;
@@ -28,6 +29,8 @@ new #[Layout('layouts.app')] class extends Component {
     public array $pihakPeminta = [];
     public array $selected = [];
     public ?string $errorMsg = null;
+    /** true kalau generate ditolak karena triwulannya belum dibeli — buat nampilin tautan ke halaman Langganan. */
+    public bool $perluBeli = false;
 
     public function updatingPerPage(): void
     {
@@ -276,6 +279,7 @@ new #[Layout('layouts.app')] class extends Component {
     public function generate(int $transaksiId, NomorSuratService $nomorService): void
     {
         $this->errorMsg = null;
+        $this->perluBeli = false;
 
         $this->jalankanGenerate([$transaksiId], $nomorService, false);
     }
@@ -283,6 +287,7 @@ new #[Layout('layouts.app')] class extends Component {
     public function generateBulk(NomorSuratService $nomorService): void
     {
         $this->errorMsg = null;
+        $this->perluBeli = false;
 
         if (empty($this->selected)) {
             $this->errorMsg = 'Pilih minimal 1 transaksi untuk generate.';
@@ -327,10 +332,18 @@ new #[Layout('layouts.app')] class extends Component {
             return;
         }
 
-        // FASE 24 (langganan triwulan): pengecekan "triwulan ini sudah dibeli?" dipasang di SINI,
-        // sebelum DB::transaction di bawah.
+        // Pengunci langganan (doc/LANGGANAN.md §4): triwulan dari tanggal transaksi harus sudah dibeli,
+        // atau masih ada kuota percobaan. Kalau saklar config('langganan.pengunci_aktif') mati, selalu lolos.
+        $sekolah = auth()->user()->sekolah;
+        $cek = app(AksesTriwulanService::class)->periksaGenerate($sekolah, $belumGenerate);
 
-        DB::transaction(function () use ($belumGenerate, $nomorService) {
+        if (!$cek['boleh']) {
+            $this->errorMsg = $cek['pesan'];
+            $this->perluBeli = true;
+            return;
+        }
+
+        DB::transaction(function () use ($belumGenerate, $nomorService, $sekolah, $cek) {
             foreach ($belumGenerate as $transaksi) {
                 // nomor_npb bisa sudah terisi (data historis dari Excel) — kalau begitu jangan dibuat ulang
                 if (!$transaksi->nomor_npb) {
@@ -347,19 +360,28 @@ new #[Layout('layouts.app')] class extends Component {
 
                 $transaksi->update(['status' => 'selesai']);
             }
+
+            // kuota percobaan dicatat di transaksi DB yang sama: kalau generate gagal, kuota ikut batal.
+            // Batal Generate TIDAK mengembalikan kuota (supaya tidak bisa diakali).
+            if ($cek['pakai_kuota'] > 0) {
+                $sekolah->increment('generate_percobaan_terpakai', $cek['pakai_kuota']);
+            }
         });
 
         $jumlah = $belumGenerate->count();
         $dilewati = $daftar->count() - $jumlah;
+        $infoKuota = $cek['pakai_kuota'] > 0
+            ? ' Memakai ' . $cek['pakai_kuota'] . ' kuota percobaan gratis (sisa ' . ($cek['sisa_kuota'] - $cek['pakai_kuota']) . ').'
+            : '';
 
         if ($bulk) {
             $pesan = "{$jumlah} transaksi berhasil di-generate. Klik \"Unduh Word (ZIP)\" untuk mengunduh suratnya.";
             if ($dilewati > 0) {
                 $pesan .= " ({$dilewati} transaksi yang sudah di-generate dilewati.)";
             }
-            session()->flash('success', $pesan);
+            session()->flash('success', $pesan . $infoKuota);
         } else {
-            session()->flash('success', 'Surat berhasil di-generate dengan nomor ' . $belumGenerate->first()->nomor_npb . '. Pakai menu aksi → Unduh Word untuk mengunduhnya.');
+            session()->flash('success', 'Surat berhasil di-generate dengan nomor ' . $belumGenerate->first()->nomor_npb . '. Pakai menu aksi → Unduh Word untuk mengunduhnya.' . $infoKuota);
         }
     }
 
@@ -466,6 +488,9 @@ new #[Layout('layouts.app')] class extends Component {
             'jumlahDraft' => Transaksi::where('sekolah_id', $sekolahId)->where('status', 'draft')->count(),
             'jumlahSelesai' => Transaksi::where('sekolah_id', $sekolahId)->where('status', 'selesai')->count(),
             'tahunPeriode' => $this->tahunPeriode(),
+            'pengunciAktif' => app(AksesTriwulanService::class)->pengunciAktif(),
+            'hakMap' => app(AksesTriwulanService::class)->hakAktifMap(auth()->user()->sekolah),
+            'sisaKuota' => app(AksesTriwulanService::class)->kuotaPercobaanSisa(auth()->user()->sekolah),
         ];
     }
 }; ?>
@@ -491,7 +516,12 @@ new #[Layout('layouts.app')] class extends Component {
             {{ session('success') }}</div>
     @endif
     @if ($errorMsg)
-        <div class="mb-4 p-3 bg-red-50 text-red-700 rounded-lg text-sm border border-red-100">{{ $errorMsg }}</div>
+        <div class="mb-4 p-3 bg-red-50 text-red-700 rounded-lg text-sm border border-red-100">{{ $errorMsg }}
+            @if ($perluBeli)
+                <a href="{{ route('langganan.index') }}" wire:navigate class="font-semibold underline ml-1">Beli paket di menu
+                    Langganan</a>
+            @endif
+        </div>
     @endif
 
     <div class="mb-4 flex flex-col sm:flex-row gap-3">
@@ -605,9 +635,17 @@ new #[Layout('layouts.app')] class extends Component {
                                 <a href="{{ route('transaksi.edit', $t) }}" wire:navigate
                                     class="block px-4 py-2 text-sm text-zinc-700 hover:bg-zinc-50">Edit</a>
                                 @if ($t->status !== 'selesai')
+                                    @php
+                                        $twBaris = $t->tanggal_npb->quarter;
+                                        $terkunci = $pengunciAktif && $sisaKuota < 1 && !isset($hakMap[$t->tahun_anggaran_id . '-' . $twBaris]);
+                                    @endphp
                                     <button wire:click="generate({{ $t->id }})" wire:loading.attr="disabled"
                                         wire:target="generate({{ $t->id }})"
-                                        class="block w-full text-left px-4 py-2 text-sm text-zinc-700 hover:bg-zinc-50">Generate</button>
+                                        class="block w-full text-left px-4 py-2 text-sm text-zinc-700 hover:bg-zinc-50">Generate
+                                        @if ($terkunci)
+                                            <span class="text-xs text-amber-600">🔒 beli TW{{ $twBaris }}</span>
+                                        @endif
+                                    </button>
                                 @else
                                     <button wire:click="unduhWord({{ $t->id }})" wire:loading.attr="disabled"
                                         wire:target="unduhWord({{ $t->id }})"
