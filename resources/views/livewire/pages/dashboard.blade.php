@@ -117,6 +117,9 @@ new #[Layout('layouts.app')] class extends Component {
         </p>
     </div>
 
+    {{-- Banner dari admin (menu Banner). Tidak tampil kalau tidak ada yang sedang tayang. --}}
+    <x-banner-slider lokasi="dashboard" />
+
     {{-- Kartu ringkasan (semua clickable ke halaman terkait) --}}
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <a href="{{ route('master-barang.index') }}" wire:navigate

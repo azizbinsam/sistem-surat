@@ -3,17 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use Livewire\Volt\Volt;
 
-Route::get('/', function () {
-    return view('welcome', [
-        // Harga langganan (PaketLangganan) baru ditampilkan di landing page pada Fase 27.
-        'rekeningDonasi' => \Illuminate\Support\Facades\Schema::hasTable('rekening_donasi')
-            ? \App\Models\RekeningDonasi::orderBy('urutan')->get()
-            : collect(),
-        'videoTutorial' => \Illuminate\Support\Facades\Schema::hasTable('video_tutorial')
-            ? \App\Models\VideoTutorial::orderBy('urutan')->get()
-            : collect(),
-    ]);
-})->name('welcome');
+Route::get('/', \App\Http\Controllers\LandingController::class)->name('welcome');
 
 Route::middleware(['auth'])->group(function () {
     // TIDAK dikasih middleware('verified') dengan sengaja — sekolah harus tetap

@@ -351,13 +351,19 @@ Cara pakai: kerjakan **satu fase per sesi**, jalankan `php artisan test` sebelum
 - [ ] Test `Fase25AdminV2Test`
 
 ### 26 — Banner
-- [ ] Migrasi + model `Banner`
-- [ ] Filament resource Banner (upload desktop 1600×400 & mobile 800×600, validasi dimensi, maks 1 MB)
-- [ ] Komponen slider responsif (`<picture>` + Alpine) di dashboard sekolah dan landing page
+- [ ] Migrasi + model `Banner` (scope `tayang`, `linkAman()`, hapus file lama saat diganti/dihapus)
+- [ ] Filament resource Banner (grup Konten): upload desktop 1600×400 & ponsel 800×600 (dimensi persis, maks 1 MB, tanpa SVG), lokasi, urutan tarik-lepas, jadwal tayang, status
+- [ ] Komponen `<x-banner-slider>`: `<picture>` responsif, slider otomatis 5 detik bila > 1 banner, JavaScript biasa
+- [ ] Dipasang di dashboard sekolah dan landing page
+- [ ] Test `Fase26BannerTest`
 
 ### 27 — Landing Page v3
-- [ ] Bagian harga dinamis (Triwulan & Tahunan), cara berlangganan, FAQ
-- [ ] Ganti bagian donasi dengan rekening pembayaran; slot banner
+- [ ] `LandingController` (menggantikan closure di route); harga dibaca dari katalog `paket_langganan`
+- [ ] Bagian Harga (Triwulan & Tahunan + label hemat), Cara Berlangganan (4 langkah), FAQ (`<details>`)
+- [ ] Promo sekolah lama dari `config('langganan.promo')` (blok promo, badge hero, butir FAQ)
+- [ ] Klaim lama diganti ("100% gratis", donasi, "Word & PDF"); bagian donasi dihapus; navbar punya tautan bagian
+- [ ] Nomor rekening tidak ditampilkan publik (hanya di halaman invoice)
+- [ ] Test `Fase27LandingTest`
 
 ### 28 — Migrasi Sekolah Lama & Peluncuran
 - [ ] Perintah `langganan:beri-hak-gratis-2026` (idempotent)

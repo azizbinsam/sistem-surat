@@ -21,6 +21,14 @@ return [
     'kode_unik_min' => 1,
     'kode_unik_max' => 999,
 
+    // Promo untuk sekolah yang sudah/segera terdaftar (doc/LANGGANAN.md §8). Dipakai di landing page.
+    // Ubah tanggalnya di sini, atau set 'tampil' => false setelah masa promo selesai.
+    'promo' => [
+        'tampil' => true,
+        'gratis_sampai' => '31 Desember 2026',
+        'tw4_sampai' => '28 Februari 2027',
+    ],
+
     // Identitas penerbit di kwitansi PDF.
     'penerbit' => [
         'nama' => env('LANGGANAN_PENERBIT_NAMA', 'Delix Studio'),

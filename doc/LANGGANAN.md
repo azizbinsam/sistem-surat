@@ -185,32 +185,42 @@ Perintah: `php artisan langganan:kirim-pengingat` (terjadwal 08:00 setiap hari).
 
 ## 11. Banner
 
-Menu **Banner** di panel admin untuk mengunggah gambar yang tampil di **dashboard sekolah** dan **landing page**.
+Menu **Banner** (grup Konten) di panel admin untuk mengunggah gambar yang tampil di **dashboard sekolah** dan **landing page**.
 
 | Field | Keterangan |
 |---|---|
 | `judul` | Nama internal (tidak tampil ke publik) |
 | `gambar_desktop` | **1600 × 400 px** (rasio 4:1). Tampil di layar ≥ 768px |
 | `gambar_mobile` | **800 × 600 px** (rasio 4:3). Tampil di layar < 768px |
-| `teks_alt` | Teks alternatif (aksesibilitas) |
-| `link_url` | Opsional. Banner bisa diklik |
+| `teks_alt` | Teks alternatif (aksesibilitas; tampil bila gambar gagal dimuat) |
+| `link_url` | Opsional. Hanya `http://`, `https://`, atau path relatif satu garis miring (`/register`) |
 | `lokasi` | `dashboard` \| `landing` \| `keduanya` |
-| `urutan` | Urutan tampil |
+| `urutan` | Angka kecil tampil lebih dulu; bisa diatur dengan tarik-lepas di tabel |
 | `aktif` | Saklar tayang |
 | `tayang_mulai`, `tayang_selesai` | Opsional. Jadwal otomatis |
 
-Aturan upload: JPG/PNG/WebP, maksimal **1 MB** per gambar, **dimensi harus persis** sesuai ukuran di atas (divalidasi). Disimpan di `storage/app/public/banners`.
+**Aturan upload:** JPG/PNG/WebP (SVG sengaja ditolak karena bisa menyisipkan skrip), maksimal **1 MB** per gambar, dan **dimensi harus persis** sesuai ukuran di atas (divalidasi). Disimpan di `storage/app/public/banners` (perlu `php artisan storage:link`). Gambar lama otomatis dihapus dari disk saat diganti atau saat banner dihapus.
 
-Tampilan responsif memakai `<picture>` dengan `<source media="(min-width: 768px)">` untuk gambar desktop dan `<img>` untuk gambar mobile. Bila ada lebih dari satu banner aktif pada satu lokasi, tampil sebagai slider otomatis (5 detik) dengan Alpine.js; bila tidak ada, bagian banner tidak dirender sama sekali.
+**Siapa yang tayang:** banner aktif, lokasinya cocok (atau "keduanya"), dan sedang dalam jadwal tayang (bila diisi), berurutan menurut `urutan` lalu `id`. Tabel admin menampilkan status **Tayang / Terjadwal / Berakhir / Nonaktif**.
+
+**Tampilan (komponen `<x-banner-slider lokasi="dashboard|landing" />`):**
+
+- Responsif lewat `<picture>`: gambar desktop dipakai di layar ≥ 768px (`<source media="(min-width: 768px)">`), gambar ponsel di bawahnya. Kotak slider berubah rasio (4:3 di ponsel, 4:1 di desktop) agar gambar selalu pas.
+- **Satu banner** = gambar saja. **Lebih dari satu** = **slider otomatis** (ganti tiap 5 detik, ada titik navigasi). Berhenti saat disorot mouse atau difokus, dan tidak berjalan otomatis bagi pengguna yang meminta gerakan dikurangi (`prefers-reduced-motion`).
+- Ditulis dengan JavaScript biasa (tanpa Alpine/library), sehingga jalan di landing page (tanpa Livewire) maupun dashboard (dengan `wire:navigate`).
+- Tidak ada banner tayang = bagian banner tidak dirender sama sekali.
+- **Keamanan:** tautan diperiksa dua kali (aturan validasi di form, dan `Banner::linkAman()` saat tampil) sehingga `javascript:` dan sejenisnya tidak pernah menjadi `href`; teks alt di-escape; tautan eksternal memakai `rel="noopener noreferrer"` dan dibuka di tab baru.
 
 ## 12. Landing Page v3
 
-- Bagian **harga** membaca katalog dari `paket_subscription`: Triwulan Rp39.000 dan Tahunan Rp129.000 (label hemat Rp27.000).
-- Teks promo untuk sekolah lama: gratis sampai akhir 2026, kelonggaran sampai Januari/Februari 2027.
-- Bagian **Cara Berlangganan** (4 langkah, §5) dan **FAQ** (cara bayar, kapan hak aktif, apakah data hilang bila tidak berlangganan, mengapa per triwulan).
-- Bagian **donasi** diganti informasi **rekening pembayaran** (dari §10).
-- Slot **banner** di bagian atas.
-- Tombol CTA: Daftar / Coba. Teks "PDF/Word" diganti "Word".
+Dikendalikan oleh `LandingController` (sebelumnya closure di `routes/web.php`).
+
+- **Harga dinamis:** bagian **Harga** membaca katalog `paket_langganan` (menu admin *Paket & Harga*), jadi mengubah harga langsung tampil tanpa deploy. Menampilkan kartu Triwulan dan Tahunan, label **Hemat Rp…** (4 × harga triwulan − harga tahunan; disembunyikan bila tidak ada selisih), dan harga per triwulan untuk paket Tahunan. Bila katalog kosong, bagian Harga dan Cara Berlangganan disembunyikan dan halaman tetap tampil normal.
+- **Promo sekolah lama:** blok promo, badge di hero, dan satu butir FAQ ("Saya sudah terdaftar. Apakah tetap gratis?") dikendalikan `config('langganan.promo')`: `tampil`, `gratis_sampai` ("31 Desember 2026"), `tw4_sampai` ("28 Februari 2027"). Setelah masa promo selesai, set `tampil` ke `false`; badge hero otomatis berganti menjadi "Coba gratis: 3 generate surat tanpa biaya".
+- **Cara Berlangganan** (4 langkah, §5) dan **FAQ** (7 pertanyaan, memakai `<details>` bawaan HTML tanpa JavaScript).
+- **Hero & fitur:** klaim "100% gratis", "tanpa biaya berlangganan", dan "Gratis, Didukung Donasi" diganti; teks "Word & PDF" menjadi "Word"; navbar punya tautan ke Fitur, Harga, dan FAQ.
+- **Slot banner** tetap di bawah navbar (§11).
+- **Keputusan:** nomor rekening **tidak** ditampilkan di landing page (rencana awal menampilkannya). Transfer tanpa invoice tidak membawa kode unik sehingga sulit dicocokkan; rekening tujuan cukup tampil di halaman invoice setelah sekolah membuat pesanan. Bagian donasi di landing dihapus. Blok "Dukung Kami" di dashboard sekolah belum diubah.
 
 ## 13. iPaymu (Fase 29, opsional)
 
