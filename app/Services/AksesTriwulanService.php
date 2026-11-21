@@ -47,6 +47,25 @@ class AksesTriwulanService
         return ['subtotal' => $subtotal, 'diskon' => $subtotal - $total, 'total' => $total];
     }
 
+    // ===== Jendela gratis berbasis aturan =====
+
+    /**
+     * Apakah (tahun anggaran, triwulan) ini masuk jendela gratis? (config langganan.gratis)
+     * Contoh bawaan: 2026 TW1–TW3 → true; 2026 TW4 → false; 2027 TW1 → false; 2025 TW4 → true (sebelum jendela).
+     * Tahun tidak diketahui (<= 0) TIDAK PERNAH dianggap gratis, supaya data yang tidak lengkap tidak lolos gratis.
+     */
+    public function gratisBerdasarkanAturan(int $tahun, int $triwulan): bool
+    {
+        $batasTahun = (int) config('langganan.gratis.tahun');
+        $batasTriwulan = (int) config('langganan.gratis.sampai_triwulan');
+
+        if ($batasTahun <= 0 || $tahun <= 0) {
+            return false;
+        }
+
+        return $tahun < $batasTahun || ($tahun === $batasTahun && $triwulan <= $batasTriwulan);
+    }
+
     // ===== Hak & kuota =====
 
     /**
@@ -153,6 +172,11 @@ class AksesTriwulanService
         foreach ($transaksi as $t) {
             $triwulan = $t->tanggal_npb->quarter;
             $kunci = $t->tahun_anggaran_id . '-' . $triwulan;
+
+            // jendela gratis (mis. TW1–TW3 2026): lolos tanpa hak dan tanpa memakai kuota percobaan
+            if ($this->gratisBerdasarkanAturan((int) ($t->tahunAnggaran->tahun ?? 0), $triwulan)) {
+                continue;
+            }
 
             if (isset($hakMap[$kunci])) {
                 continue;

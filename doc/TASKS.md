@@ -365,10 +365,32 @@ Cara pakai: kerjakan **satu fase per sesi**, jalankan `php artisan test` sebelum
 - [ ] Nomor rekening tidak ditampilkan publik (hanya di halaman invoice)
 - [ ] Test `Fase27LandingTest`
 
-### 28 — Migrasi Sekolah Lama & Peluncuran
-- [ ] Perintah `langganan:beri-hak-gratis-2026` (idempotent)
-- [ ] Pengumuman ke sekolah (email + banner) paling lambat awal Desember 2026
+### 28 — Aturan Harga Baru (gratis TW1–TW3 2026, TW4 2026 berbayar)
+- [ ] Jendela gratis berbasis aturan: `AksesTriwulanService::gratisBerdasarkanAturan` + config `langganan.gratis` (env `LANGGANAN_GRATIS_TAHUN`, `LANGGANAN_GRATIS_SAMPAI_TW`)
+- [ ] Dipakai di: pengunci generate (tanpa kuota), invoice (triwulan gratis ditolak), kartu halaman Langganan, gembok di Pengeluaran Barang, pengingat draft
+- [ ] Pengunci aktif secara bawaan (`LANGGANAN_PENGUNCI_AKTIF=true`); `phpunit.xml` mematikannya + jendela gratis agar test tidak bergantung pada tanggal
+- [ ] Landing page: teks gratis dari config (blok info, badge hero, FAQ); config `promo` lama dihapus
+- [ ] Perintah `langganan:beri-hak-gratis-2026` dibatalkan (tidak ada sekolah lama)
+- [ ] Test `Fase28AturanHargaTest`
 
-### 29 — iPaymu (opsional, setelah manual berjalan)
+### 29 — Menu Langganan: QRIS & Konfirmasi WhatsApp
+- [ ] Gambar QRIS besar di atas, keterangan di bawah; perbesar, unduh, salin nominal, salin nomor rekening
+- [ ] Tombol konfirmasi WhatsApp (nomor dari `.env` `LANGGANAN_WHATSAPP`) setelah upload bukti dan di riwayat invoice berstatus menunggu verifikasi
+- [ ] Tautan bukti transfer bertanda tangan (signed URL) dan email instan ke admin saat bukti diunggah
+
+### 30 — Registrasi Ulang yang Rapi
+- [ ] Wizard 3 langkah (data sekolah, kontak, pengaturan surat + nomor urut terakhir); WhatsApp dan email wajib, nomor WA dinormalisasi
+- [ ] Indikator kelengkapan profil; admin: kolom kelengkapan, filter, tombol WhatsApp, pengingat email otomatis
+
+### 31 — Dashboard Sekolah Baru
+- [ ] 4 kartu dengan keterangan kecil, kartu Nomor Surat Terakhir & Langganan, donat Draft vs Selesai, Surat Terakhir, checklist, aksi cepat; hapus stok menipis, tren, top 5, "Dukung Kami"
+
+### 32 — Panduan Peluncuran Ulang & Backup
+- [ ] Runbook (migrate, seeder admin, rekening/QRIS, pengaturan aplikasi, video tutorial, Tahun Anggaran 2027); backup harian DB + `storage/app/public` ke luar server
+
+### 33 — Landing Page dari Desain Figma / HTML buatan sendiri
+- [ ] Sinkronkan HTML ke Blade, teks konten (FAQ, harga) disesuaikan dengan versi sistem
+
+### 34 — iPaymu (opsional, setelah manual berjalan)
 - [ ] Baca dokumentasi API & biaya iPaymu; pastikan verifikasi signature webhook
 - [ ] Integrasi create payment + webhook → memicu persetujuan invoice yang sama

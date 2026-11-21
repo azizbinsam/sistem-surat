@@ -60,28 +60,38 @@ class Fase27LandingTest extends TestCase
             ->assertSee('id="faq"', false);
     }
 
-    // ===== Promo sekolah lama =====
+    // ===== Jendela gratis (config langganan.gratis) =====
 
-    public function test_promo_tampil_dengan_tanggal_dari_konfigurasi(): void
+    public function test_info_gratis_tampil_dengan_rentang_dari_konfigurasi(): void
     {
-        config(['langganan.promo' => ['tampil' => true, 'gratis_sampai' => '15 Januari 2027', 'tw4_sampai' => '15 Maret 2027']]);
+        config(['langganan.gratis' => ['tahun' => 2026, 'sampai_triwulan' => 3, 'tampil_di_landing' => true]]);
 
         $this->get('/')
-            ->assertSee('Gratis untuk sekolah yang mendaftar sampai 15 Januari 2027')
-            ->assertSee('Laporan TW4 2026 masih bisa dibuat sampai')
-            ->assertSee('15 Maret 2027')
-            ->assertSee('Saya sudah terdaftar. Apakah tetap gratis?');
+            ->assertSee('Gratis untuk Triwulan 1–3 Tahun Anggaran 2026')
+            ->assertSee('Laporan untuk periode itu bisa dibuat')
+            ->assertSee('Triwulan 4 Tahun Anggaran 2026') // mulai berbayar
+            ->assertSee('Apa saja yang gratis?');
     }
 
-    public function test_promo_hilang_kalau_dimatikan(): void
+    public function test_batas_gratis_mengikuti_konfigurasi(): void
     {
-        config(['langganan.promo' => ['tampil' => false, 'gratis_sampai' => '31 Desember 2026', 'tw4_sampai' => '28 Februari 2027']]);
+        config(['langganan.gratis' => ['tahun' => 2027, 'sampai_triwulan' => 4, 'tampil_di_landing' => true]]);
 
         $this->get('/')
+            ->assertSee('Triwulan 1–4 Tahun Anggaran 2027')
+            ->assertSee('Triwulan 1 Tahun Anggaran 2028'); // jendela menutup TW4 → berbayar mulai TW1 tahun berikutnya
+    }
+
+    public function test_info_gratis_hilang_kalau_dimatikan_atau_tahun_nol(): void
+    {
+        config(['langganan.gratis' => ['tahun' => 2026, 'sampai_triwulan' => 3, 'tampil_di_landing' => false]]);
+        $this->get('/')
             ->assertOk()
-            ->assertDontSee('Promo sekolah yang mendaftar sampai')
-            ->assertDontSee('Saya sudah terdaftar. Apakah tetap gratis?')
+            ->assertDontSee('Apa saja yang gratis?')
             ->assertSee('Coba gratis: 3 generate surat tanpa biaya');
+
+        config(['langganan.gratis' => ['tahun' => 0, 'sampai_triwulan' => 3, 'tampil_di_landing' => true]]);
+        $this->get('/')->assertDontSee('Apa saja yang gratis?');
     }
 
     // ===== Cara berlangganan & FAQ =====

@@ -466,7 +466,7 @@ new #[Layout('layouts.app')] class extends Component {
                 ->orWhere('nomor_npb', 'like', "%{$this->search}%")))
             ->when($this->filterStatus, fn($q) => $q->where('status', $this->filterStatus))
             ->withCount('items')
-            ->with('items.masterBarang', 'pihakPeminta');
+            ->with('items.masterBarang', 'pihakPeminta', 'tahunAnggaran');
 
         $query = $this->terapkanFilterPeriode($query, 'tanggal_npb');
 
@@ -637,7 +637,8 @@ new #[Layout('layouts.app')] class extends Component {
                                 @if ($t->status !== 'selesai')
                                     @php
                                         $twBaris = $t->tanggal_npb->quarter;
-                                        $terkunci = $pengunciAktif && $sisaKuota < 1 && !isset($hakMap[$t->tahun_anggaran_id . '-' . $twBaris]);
+                                        $terkunci = $pengunciAktif && $sisaKuota < 1 && !isset($hakMap[$t->tahun_anggaran_id . '-' . $twBaris])
+                                            && !app(\App\Services\AksesTriwulanService::class)->gratisBerdasarkanAturan((int) ($t->tahunAnggaran->tahun ?? 0), $twBaris);
                                     @endphp
                                     <button wire:click="generate({{ $t->id }})" wire:loading.attr="disabled"
                                         wire:target="generate({{ $t->id }})"

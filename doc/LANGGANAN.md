@@ -18,9 +18,8 @@ Terakhir diperbarui: 17 November 2026.
 | Format surat | **Word saja**. Generate PDF untuk surat dihapus |
 | Pembayaran awal | **Manual** (transfer + upload bukti + verifikasi admin) |
 | Payment gateway | **Fersaku dibatalkan.** Midtrans tidak dipakai. Otomatisasi nanti pakai **iPaymu** (Fase 29, opsional) |
-| Sekolah lama | Gratis untuk Tahun Anggaran 2026. Pembayaran mulai berlaku **2027** |
-| Kelonggaran | TW1–TW3 2026: gratis sampai **31 Jan 2027**. TW4 2026: gratis sampai **28 Feb 2027** |
-| Percobaan sekolah baru | **3 generate gratis** per sekolah, seumur akun |
+| Jendela gratis | **Tahun Anggaran 2026 triwulan 1–3 gratis** untuk semua sekolah (termasuk yang mendaftar belakangan), tanpa batas waktu. **Mulai TW4 2026 berbayar** |
+| Percobaan sekolah baru | **3 generate gratis** per sekolah, seumur akun (untuk triwulan berbayar) |
 | Batas waktu invoice | **7 hari** |
 
 ## 2. Prinsip
@@ -55,7 +54,9 @@ Contoh: beli 1 triwulan = Rp39.000. Beli 3 triwulan = Rp117.000. Beli 4 triwulan
 
 ## 4. Aturan Akses
 
-> **Saklar peluncuran:** pengunci hanya berlaku bila `LANGGANAN_PENGUNCI_AKTIF=true` di `.env` (config `langganan.pengunci_aktif`, default **false**). Selama saklar mati, semua sekolah bebas generate, kuota percobaan tidak terpakai, dan menu **Langganan** tidak tampil di sidebar. Nyalakan **setelah** `langganan:beri-hak-gratis-2026` dijalankan di produksi (Fase 28); kalau dinyalakan lebih dulu, sekolah lama akan menghabiskan kuota percobaan dan terblokir.
+> **Saklar:** pengunci aktif secara bawaan (`LANGGANAN_PENGUNCI_AKTIF=true`). Mematikannya (`false`) hanya untuk keadaan khusus/uji coba: semua sekolah bebas generate, kuota percobaan tidak terpakai, dan menu **Langganan** disembunyikan.
+>
+> **Jendela gratis (berbasis aturan):** triwulan sampai (`LANGGANAN_GRATIS_TAHUN`, `LANGGANAN_GRATIS_SAMPAI_TW`) = (2026, 3) tidak perlu hak dan tidak memakai kuota percobaan. Ini aturan di kode (`AksesTriwulanService::gratisBerdasarkanAturan`), bukan baris di `hak_triwulan`, sehingga berlaku otomatis untuk sekolah yang mendaftar kapan pun dan tidak ada perintah migrasi. Dihitung dari tahun anggaran + triwulan **tanggal transaksi**. `LANGGANAN_GRATIS_TAHUN=0` mematikan jendela. Triwulan gratis tidak bisa dibeli (invoice ditolak).
 
 | Aksi | Perlu hak triwulan? |
 |---|---|
@@ -131,14 +132,16 @@ Tombol di baris menyesuaikan status: *Draft* → Edit, Generate, Hapus. *Sudah d
 
 **Kolom `invoice` tambahan:** `subtotal`, `diskon`, `total` (hasil rumus harga), lalu `kode_unik` dan `total_bayar = total + kode_unik`. Nomor invoice: `INV-{tahun}-{id 4 digit}`.
 
-## 8. Sekolah Lama (migrasi ke model baru)
+## 8. Jendela Gratis dan Peluncuran Ulang
 
-Satu perintah artisan, **aman dijalankan berulang** (idempotent): `php artisan langganan:beri-hak-gratis-2026`
+Database sekolah lama hilang, sehingga **semua sekolah mendaftar ulang** (tidak ada migrasi data dan tidak ada perintah `langganan:beri-hak-gratis-2026`). Aturan yang berlaku:
 
-- Untuk setiap sekolah yang terdaftar sampai 31 Des 2026 dan memiliki Tahun Anggaran 2026: buat hak triwulan `sumber = gratis` untuk TW1–TW4.
-- `berlaku_sampai`: TW1–TW3 → **2027-01-31**; TW4 → **2027-02-28** (laporan TW4 biasanya dibuat Januari–Februari).
-- Setelah batas lewat dan belum di-generate, sekolah perlu membeli seperti biasa.
-- **Pengumuman ke sekolah** (email + banner dashboard) paling lambat awal Desember 2026: sampai kapan gratis, harga paket, dan cara bayar.
+- **TW1–TW3 2026 gratis**, tanpa batas waktu, untuk semua sekolah yang mendaftar.
+- **Mulai TW4 2026 berbayar** (Rp39.000 per triwulan). Paket Tahunan baru relevan mulai Tahun Anggaran 2027 (untuk 2026 hanya TW4 yang bisa dibeli).
+- Sekolah baru mendapat **3 generate gratis** untuk triwulan berbayar.
+- Tahun Anggaran 2027 dibuka admin lewat *Sistem → Kelola Tahun Anggaran* sebelum sekolah membutuhkannya.
+
+Sekolah mengatur **nomor urut terakhir** di Pengaturan Sekolah, sehingga yang mulai di tengah tahun bisa melanjutkan penomoran surat yang sudah ada.
 
 ## 9. Email & Pengingat Otomatis
 
@@ -216,7 +219,7 @@ Menu **Banner** (grup Konten) di panel admin untuk mengunggah gambar yang tampil
 Dikendalikan oleh `LandingController` (sebelumnya closure di `routes/web.php`).
 
 - **Harga dinamis:** bagian **Harga** membaca katalog `paket_langganan` (menu admin *Paket & Harga*), jadi mengubah harga langsung tampil tanpa deploy. Menampilkan kartu Triwulan dan Tahunan, label **Hemat Rp…** (4 × harga triwulan − harga tahunan; disembunyikan bila tidak ada selisih), dan harga per triwulan untuk paket Tahunan. Bila katalog kosong, bagian Harga dan Cara Berlangganan disembunyikan dan halaman tetap tampil normal.
-- **Promo sekolah lama:** blok promo, badge di hero, dan satu butir FAQ ("Saya sudah terdaftar. Apakah tetap gratis?") dikendalikan `config('langganan.promo')`: `tampil`, `gratis_sampai` ("31 Desember 2026"), `tw4_sampai` ("28 Februari 2027"). Setelah masa promo selesai, set `tampil` ke `false`; badge hero otomatis berganti menjadi "Coba gratis: 3 generate surat tanpa biaya".
+- **Info gratis:** blok info, badge di hero, dan satu butir FAQ ("Apa saja yang gratis?") dibentuk dari `config('langganan.gratis')` — teks "Triwulan 1–3 Tahun Anggaran 2026" dan "Triwulan 4 Tahun Anggaran 2026" dihitung otomatis. Set `tampil_di_landing` ke `false` (atau `LANGGANAN_GRATIS_TAHUN=0`) untuk menyembunyikannya; badge hero lalu berganti menjadi "Coba gratis: 3 generate surat tanpa biaya".
 - **Cara Berlangganan** (4 langkah, §5) dan **FAQ** (7 pertanyaan, memakai `<details>` bawaan HTML tanpa JavaScript).
 - **Hero & fitur:** klaim "100% gratis", "tanpa biaya berlangganan", dan "Gratis, Didukung Donasi" diganti; teks "Word & PDF" menjadi "Word"; navbar punya tautan ke Fitur, Harga, dan FAQ.
 - **Slot banner** tetap di bawah navbar (§11).

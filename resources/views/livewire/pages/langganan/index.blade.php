@@ -24,9 +24,18 @@ new #[Layout('layouts.app')] class extends Component {
      */
     protected function susunKartu(Sekolah $sekolah, TahunAnggaran $tahunAnggaran): array
     {
-        $hak = HakTriwulan::where('sekolah_id', $sekolah->id)->where('tahun_anggaran_id', $tahunAnggaran->id)->get()->keyBy('triwulan');
+        $hak = HakTriwulan::where('sekolah_id', $sekolah->id)
+            ->where('tahun_anggaran_id', $tahunAnggaran->id)
+            ->get()
+            ->keyBy('triwulan');
 
-        $pending = InvoiceItem::with('invoice')->whereHas('invoice', fn($q) => $q->where('sekolah_id', $sekolah->id)->whereIn('status', Invoice::PENDING))->where('tahun_anggaran_id', $tahunAnggaran->id)->get()->keyBy('triwulan');
+        $pending = InvoiceItem::with('invoice')
+            ->whereHas('invoice', fn($q) => $q->where('sekolah_id', $sekolah->id)->whereIn('status', Invoice::PENDING))
+            ->where('tahun_anggaran_id', $tahunAnggaran->id)
+            ->get()
+            ->keyBy('triwulan');
+
+        $akses = app(AksesTriwulanService::class);
 
         $kartu = [];
         foreach ([1, 2, 3, 4] as $tw) {
@@ -41,7 +50,11 @@ new #[Layout('layouts.app')] class extends Component {
                 'bisaDipilih' => false,
             ];
 
-            if ($aktif) {
+            if ($akses->gratisBerdasarkanAturan((int) $tahunAnggaran->tahun, $tw)) {
+                // jendela gratis berbasis aturan: tidak bisa dipilih/dibeli
+                $kartu[$tw]['status'] = 'gratis';
+                $kartu[$tw]['catatan'] = 'Gratis — tidak perlu dibeli';
+            } elseif ($aktif) {
                 $kartu[$tw]['status'] = $h->sumber === 'berbayar' ? 'dibeli' : ($h->sumber === 'gratis' ? 'gratis' : 'manual');
                 if ($h->berlaku_sampai) {
                     $kartu[$tw]['catatan'] = 'Gratis sampai ' . $h->berlaku_sampai->format('d-m-Y');
@@ -65,7 +78,9 @@ new #[Layout('layouts.app')] class extends Component {
         $sekolah = auth()->user()->sekolah;
         $tahunAnggaran = $resolver->aktif($sekolah);
 
-        $this->dipilih = $tahunAnggaran ? collect($this->susunKartu($sekolah, $tahunAnggaran))->filter(fn($k) => $k['bisaDipilih'])->keys()->all() : [];
+        $this->dipilih = $tahunAnggaran
+            ? collect($this->susunKartu($sekolah, $tahunAnggaran))->filter(fn($k) => $k['bisaDipilih'])->keys()->all()
+            : [];
     }
 
     public function buatInvoice(InvoiceService $service, TahunAnggaranResolver $resolver)
@@ -97,7 +112,11 @@ new #[Layout('layouts.app')] class extends Component {
         $kartu = $tahunAnggaran ? $this->susunKartu($sekolah, $tahunAnggaran) : [];
 
         // abaikan centang yang sudah tidak valid (mis. triwulan baru saja dibeli/dipesan di tab lain)
-        $dipilihValid = collect($this->dipilih)->map(fn($t) => (int) $t)->filter(fn($t) => $kartu[$t]['bisaDipilih'] ?? false)->unique()->values();
+        $dipilihValid = collect($this->dipilih)
+            ->map(fn($t) => (int) $t)
+            ->filter(fn($t) => $kartu[$t]['bisaDipilih'] ?? false)
+            ->unique()
+            ->values();
 
         return [
             'tahunAnggaran' => $tahunAnggaran,
@@ -134,8 +153,7 @@ new #[Layout('layouts.app')] class extends Component {
 
     <div class="mb-6 p-4 bg-zinc-50 border border-zinc-200 rounded-xl text-sm text-zinc-600 space-y-1">
         <p>Harga: <strong>Rp {{ number_format($hargaTriwulan, 0, ',', '.') }}</strong> per triwulan, atau
-            <strong>Rp {{ number_format($hargaTahunan, 0, ',', '.') }}</strong> untuk 4 triwulan sekaligus.
-        </p>
+            <strong>Rp {{ number_format($hargaTahunan, 0, ',', '.') }}</strong> untuk 4 triwulan sekaligus.</p>
         <p>Input data, stok, dan arsip tetap bebas. Yang dibatasi hanya tombol <strong>Generate</strong> surat, sesuai
             triwulan dari tanggal transaksi.</p>
         <p>Kuota percobaan gratis: <strong>{{ $sisaKuota }} dari {{ $kuotaTotal }}</strong> generate tersisa.</p>
@@ -178,8 +196,7 @@ new #[Layout('layouts.app')] class extends Component {
             @endforeach
         </div>
 
-        <div
-            class="mb-8 flex flex-col sm:flex-row sm:items-center gap-3 bg-white rounded-xl border border-zinc-200 p-4">
+        <div class="mb-8 flex flex-col sm:flex-row sm:items-center gap-3 bg-white rounded-xl border border-zinc-200 p-4">
             <button type="button" wire:click="pilihSemuaSisa"
                 class="text-sm text-emerald-700 font-medium hover:underline text-left">Pilih semua triwulan yang belum
                 dibeli</button>
@@ -187,12 +204,10 @@ new #[Layout('layouts.app')] class extends Component {
                 @if ($jumlahDipilih > 0)
                     <p>{{ $jumlahDipilih }} triwulan dipilih
                         @if ($harga['diskon'] > 0)
-                            <span class="text-emerald-700">(hemat Rp
-                                {{ number_format($harga['diskon'], 0, ',', '.') }})</span>
+                            <span class="text-emerald-700">(hemat Rp {{ number_format($harga['diskon'], 0, ',', '.') }})</span>
                         @endif
                     </p>
-                    <p class="font-semibold text-zinc-900">Total Rp {{ number_format($harga['total'], 0, ',', '.') }}
-                    </p>
+                    <p class="font-semibold text-zinc-900">Total Rp {{ number_format($harga['total'], 0, ',', '.') }}</p>
                 @else
                     <p>Centang triwulan yang ingin dibeli.</p>
                 @endif
@@ -210,14 +225,11 @@ new #[Layout('layouts.app')] class extends Component {
         <table class="min-w-full divide-y divide-zinc-100">
             <thead class="bg-zinc-50">
                 <tr>
-                    <th class="px-4 py-3 text-left text-xs font-semibold text-zinc-500 uppercase tracking-wider">Nomor
-                    </th>
-                    <th class="px-4 py-3 text-left text-xs font-semibold text-zinc-500 uppercase tracking-wider">Dibuat
-                    </th>
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-zinc-500 uppercase tracking-wider">Nomor</th>
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-zinc-500 uppercase tracking-wider">Dibuat</th>
                     <th class="px-4 py-3 text-right text-xs font-semibold text-zinc-500 uppercase tracking-wider">Total
                         Bayar</th>
-                    <th class="px-4 py-3 text-left text-xs font-semibold text-zinc-500 uppercase tracking-wider">Status
-                    </th>
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-zinc-500 uppercase tracking-wider">Status</th>
                     <th class="px-4 py-3"></th>
                 </tr>
             </thead>
@@ -226,8 +238,7 @@ new #[Layout('layouts.app')] class extends Component {
                     <tr wire:key="inv-{{ $inv->id }}">
                         <td class="px-4 py-3 text-sm font-medium text-zinc-900">{{ $inv->nomor }}</td>
                         <td class="px-4 py-3 text-sm text-zinc-500">{{ $inv->created_at->format('d-m-Y') }}</td>
-                        <td class="px-4 py-3 text-sm text-right">Rp {{ number_format($inv->total_bayar, 0, ',', '.') }}
-                        </td>
+                        <td class="px-4 py-3 text-sm text-right">Rp {{ number_format($inv->total_bayar, 0, ',', '.') }}</td>
                         <td class="px-4 py-3 text-sm">
                             <span
                                 class="px-2 py-0.5 text-xs rounded-full border {{ $inv->kelasBadge() }}">{{ $inv->labelStatus() }}</span>

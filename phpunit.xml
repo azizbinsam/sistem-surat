@@ -26,6 +26,9 @@
         <!-- <env name="DB_CONNECTION" value="sqlite"/> -->
         <!-- <env name="DB_DATABASE" value=":memory:"/> -->
         <env name="MAIL_MAILER" value="array"/>
+        <!-- Langganan: test tidak boleh bergantung pada .env/tanggal. Test yang butuh pengunci atau jendela gratis menyalakannya sendiri lewat config(). -->
+        <env name="LANGGANAN_PENGUNCI_AKTIF" value="false"/>
+        <env name="LANGGANAN_GRATIS_TAHUN" value="0"/>
         <env name="PULSE_ENABLED" value="false"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
         <env name="SESSION_DRIVER" value="array"/>

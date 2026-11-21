@@ -43,8 +43,8 @@
         <div class="max-w-4xl mx-auto px-6 pt-28 pb-24 text-center relative z-10">
             <span
                 class="inline-block bg-emerald-600/20 text-emerald-400 text-xs font-semibold px-3 py-1 rounded-full mb-6">
-                @if ($promo['tampil'] ?? false)
-                    Gratis untuk sekolah yang mendaftar sampai {{ $promo['gratis_sampai'] }}
+                @if ($gratis['tampil'])
+                    Gratis untuk {{ $gratis['rentang'] }}
                 @else
                     Coba gratis: 3 generate surat tanpa biaya
                 @endif
@@ -212,11 +212,11 @@
                         membutuhkannya.</p>
                 </div>
 
-                @if ($promo['tampil'] ?? false)
+                @if ($gratis['tampil'])
                     <div class="mb-10 p-5 rounded-2xl bg-emerald-50 border border-emerald-200 text-sm text-emerald-900">
-                        <p class="font-semibold mb-1">🎉 Promo sekolah yang mendaftar sampai {{ $promo['gratis_sampai'] }}</p>
-                        <p>Seluruh Tahun Anggaran 2026 <strong>gratis</strong>. Laporan TW4 2026 masih bisa dibuat sampai
-                            {{ $promo['tw4_sampai'] }}. Paket berbayar baru berlaku mulai Tahun Anggaran 2027.</p>
+                        <p class="font-semibold mb-1">🎉 Gratis: {{ $gratis['rentang'] }}</p>
+                        <p>Laporan untuk periode itu bisa dibuat <strong>tanpa biaya</strong> dan tanpa batas waktu. Mulai
+                            {{ $gratis['mulai_berbayar'] }}, pembuatan surat memakai paket di bawah ini.</p>
                     </div>
                 @endif
 
@@ -325,15 +325,15 @@
                     </details>
                 @endforeach
 
-                @if ($promo['tampil'] ?? false)
+                @if ($gratis['tampil'])
                     <details class="group bg-white rounded-xl border border-zinc-200 px-5 py-4">
                         <summary class="cursor-pointer font-medium text-zinc-900 list-none flex justify-between items-center gap-4">
-                            Saya sudah terdaftar. Apakah tetap gratis?
+                            Apa saja yang gratis?
                             <span class="text-zinc-400 group-open:rotate-45 transition-transform text-xl leading-none">+</span>
                         </summary>
-                        <p class="text-sm text-zinc-600 mt-3">Ya. Untuk sekolah yang mendaftar sampai {{ $promo['gratis_sampai'] }},
-                            seluruh Tahun Anggaran 2026 gratis. Laporan TW4 2026 masih bisa dibuat sampai
-                            {{ $promo['tw4_sampai'] }}. Paket berbayar mulai berlaku untuk Tahun Anggaran 2027.</p>
+                        <p class="text-sm text-zinc-600 mt-3">Laporan {{ $gratis['rentang'] }} gratis tanpa batas waktu.
+                            Mulai {{ $gratis['mulai_berbayar'] }}, pembuatan surat memakai paket berbayar. Sekolah baru
+                            juga mendapat 3 generate surat gratis untuk mencoba.</p>
                     </details>
                 @endif
             </div>

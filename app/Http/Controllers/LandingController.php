@@ -12,11 +12,35 @@ class LandingController extends Controller
     {
         return view('welcome', [
             'harga' => $this->harga(),
-            'promo' => config('langganan.promo'),
+            'gratis' => $this->gratis(),
             'videoTutorial' => Schema::hasTable('video_tutorial')
                 ? VideoTutorial::orderBy('urutan')->get()
                 : collect(),
         ]);
+    }
+
+    /**
+     * Teks jendela gratis untuk landing page, disusun dari config('langganan.gratis') supaya mengubah
+     * batas gratis cukup di satu tempat (config/.env), tanpa menyunting teks landing.
+     *
+     * @return array{tampil:bool, rentang:string, mulai_berbayar:string}
+     */
+    protected function gratis(): array
+    {
+        $tahun = (int) config('langganan.gratis.tahun');
+        $sampai = (int) config('langganan.gratis.sampai_triwulan');
+
+        $tampil = $tahun > 0 && $sampai >= 1 && (bool) config('langganan.gratis.tampil_di_landing', true);
+
+        // triwulan pertama yang berbayar; kalau jendela gratis menutup TW4, berbayar mulai TW1 tahun berikutnya
+        $mulaiTriwulan = $sampai >= 4 ? 1 : $sampai + 1;
+        $mulaiTahun = $sampai >= 4 ? $tahun + 1 : $tahun;
+
+        return [
+            'tampil' => $tampil,
+            'rentang' => ($sampai <= 1 ? 'Triwulan 1' : "Triwulan 1–{$sampai}") . " Tahun Anggaran {$tahun}",
+            'mulai_berbayar' => "Triwulan {$mulaiTriwulan} Tahun Anggaran {$mulaiTahun}",
+        ];
     }
 
     /**

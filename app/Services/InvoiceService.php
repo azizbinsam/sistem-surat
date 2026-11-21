@@ -41,6 +41,11 @@ class InvoiceService
             throw new LanggananException('Triwulan harus antara 1 sampai 4.');
         }
 
+        $gratis = $triwulan->filter(fn($t) => $this->akses->gratisBerdasarkanAturan((int) $tahunAnggaran->tahun, $t));
+        if ($gratis->isNotEmpty()) {
+            throw new LanggananException('Triwulan ' . $gratis->map(fn($t) => "TW{$t}")->implode(', ') . " Tahun Anggaran {$tahunAnggaran->tahun} gratis, tidak perlu dibeli.");
+        }
+
         return DB::transaction(function () use ($sekolah, $tahunAnggaran, $triwulan) {
             $hakMap = $this->akses->hakAktifMap($sekolah);
 

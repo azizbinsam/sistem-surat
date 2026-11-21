@@ -18,7 +18,7 @@ use Carbon\Carbon;
  */
 class PengingatLanggananService
 {
-    public function __construct(protected LanggananNotifier $notifier)
+    public function __construct(protected LanggananNotifier $notifier, protected AksesTriwulanService $akses)
     {
     }
 
@@ -95,6 +95,11 @@ class PengingatLanggananService
         $triwulanLalu = $hariTerakhirTriwulanLalu->quarter;
         $tahunLalu = $hariTerakhirTriwulanLalu->year;
         [$awal, $akhir] = Triwulan::rentang($tahunLalu, $triwulanLalu);
+
+        // triwulan yang gratis tidak perlu diingatkan untuk dibeli
+        if ($this->akses->gratisBerdasarkanAturan($tahunLalu, $triwulanLalu)) {
+            return 0;
+        }
 
         $jumlah = 0;
 
